@@ -1,0 +1,10 @@
+.env
+node_modules
+dist
+.vscode
+.idea
+.DS_Store
+.agent
+
+*.pdf
+best_practices.md

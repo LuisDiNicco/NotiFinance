@@ -1,0 +1,40 @@
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { ITemplateRepository } from './ITemplateRepository';
+import { TEMPLATE_REPO } from './ITemplateRepository';
+import { NotificationTemplate } from '../domain/entities/NotificationTemplate';
+
+export interface CompiledTemplate {
+    subject: string;
+    body: string;
+}
+
+@Injectable()
+export class TemplateCompilerService {
+    constructor(
+        @Inject(TEMPLATE_REPO) private readonly repo: ITemplateRepository,
+    ) { }
+
+    public async compileTemplate(eventType: string, context: Record<string, unknown>): Promise<CompiledTemplate> {
+        const template = await this.repo.findByEventType(eventType);
+
+        if (!template) {
+            throw new NotFoundException(`Template not found for eventType: ${eventType}`);
+        }
+
+        return {
+            subject: this.render(template.subjectTemplate, context),
+            body: this.render(template.bodyTemplate, context),
+        };
+    }
+
+    public async saveTemplate(template: NotificationTemplate): Promise<NotificationTemplate> {
+        return this.repo.save(template);
+    }
+
+    private render(tpl: string, data: Record<string, any>): string {
+        return tpl.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, key) => {
+            const value = key.split('.').reduce((o: any, i: string) => (o ? o[i] : undefined), data);
+            return value !== undefined ? String(value) : '';
+        });
+    }
+}
