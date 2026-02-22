@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DispatcherService } from './DispatcherService';
-import { TemplateCompilerService } from '../../../template/application/TemplateCompilerService';
-import { PreferencesService } from '../../../preferences/application/PreferencesService';
-import { CHANNEL_PROVIDERS, IChannelProvider } from './IChannelProvider';
-import { EventPayload, EventType } from '../../../../ingestion/domain/EventPayload';
-import { NotificationChannel, UserPreference } from '../../../preferences/domain/entities/UserPreference';
+import { DispatcherService } from '../../../../../src/modules/notification/application/services/DispatcherService';
+import { TemplateCompilerService } from '../../../../../src/modules/template/application/TemplateCompilerService';
+import { PreferencesService } from '../../../../../src/modules/preferences/application/PreferencesService';
+import { CHANNEL_PROVIDERS, IChannelProvider } from '../../../../../src/modules/notification/application/services/IChannelProvider';
+import { EventPayload, EventType } from '../../../../../src/modules/ingestion/domain/EventPayload';
+import { NotificationChannel, UserPreference } from '../../../../../src/modules/preferences/domain/entities/UserPreference';
 import { NotFoundException } from '@nestjs/common';
 
 describe('DispatcherService', () => {

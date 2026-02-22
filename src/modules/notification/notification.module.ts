@@ -4,23 +4,23 @@ import { DispatcherService } from './application/services/DispatcherService';
 import { EmailChannelAdapter } from './infrastructure/secondary-adapters/workers/EmailChannelAdapter';
 import { InAppChannelAdapter } from './infrastructure/secondary-adapters/workers/InAppChannelAdapter';
 import { CHANNEL_PROVIDERS } from './application/services/IChannelProvider';
-import { TemplateModule } from '../template/template.module';
 import { PreferencesModule } from '../preferences/preferences.module';
+import { TemplateModule } from '../template/template.module';
+import { NotificationGateway } from './infrastructure/secondary-adapters/websockets/NotificationGateway';
 
 @Module({
-    imports: [TemplateModule, PreferencesModule],
+    imports: [PreferencesModule, TemplateModule],
     controllers: [EventConsumer],
     providers: [
         DispatcherService,
-        {
-            provide: CHANNEL_PROVIDERS,
-            useFactory: (emailAdapter: EmailChannelAdapter, inAppAdapter: InAppChannelAdapter) => {
-                return [emailAdapter, inAppAdapter];
-            },
-            inject: [EmailChannelAdapter, InAppChannelAdapter],
-        },
+        NotificationGateway,
         EmailChannelAdapter,
         InAppChannelAdapter,
+        {
+            provide: CHANNEL_PROVIDERS,
+            useFactory: (email: EmailChannelAdapter, inApp: InAppChannelAdapter) => [email, inApp],
+            inject: [EmailChannelAdapter, InAppChannelAdapter],
+        },
     ],
 })
 export class NotificationModule { }

@@ -31,5 +31,11 @@
     "noPropertyAccessFromIndexSignature": true,
     "noUncheckedIndexedAccess": true,
     "useUnknownInCatchVariables": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "noticore-client",
+    "noticore-admin",
+    "dist"
+  ]
 }

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { TemplateCompilerService } from './TemplateCompilerService';
-import { ITemplateRepository, TEMPLATE_REPO } from './ITemplateRepository';
-import { NotificationTemplate } from '../domain/entities/NotificationTemplate';
+import { TemplateCompilerService } from '../../../../../src/modules/template/application/TemplateCompilerService';
+import { ITemplateRepository, TEMPLATE_REPO } from '../../../../../src/modules/template/application/ITemplateRepository';
+import { NotificationTemplate } from '../../../../../src/modules/template/domain/entities/NotificationTemplate';
 import { NotFoundException } from '@nestjs/common';
 
 describe('TemplateCompilerService', () => {
