@@ -4,21 +4,30 @@ import { IncomingMessage, ServerResponse } from 'http';
 
 const isProduction = process.env['NODE_ENV'] === 'production';
 
+const pinoHttpConfig = isProduction
+    ? {
+        level: 'info' as const,
+        autoLogging: false,
+        customProps: (req: IncomingMessage, _res: ServerResponse) => ({
+            context: 'HTTP',
+            correlationId: req.headers['x-correlation-id'] || 'no-correlation-id',
+        }),
+    }
+    : {
+        level: 'debug' as const,
+        transport: { target: 'pino-pretty', options: { colorize: true } },
+        autoLogging: false,
+        customProps: (req: IncomingMessage, _res: ServerResponse) => ({
+            context: 'HTTP',
+            correlationId: req.headers['x-correlation-id'] || 'no-correlation-id',
+        }),
+    };
+
 @Global()
 @Module({
     imports: [
         LoggerModule.forRoot({
-            pinoHttp: {
-                level: !isProduction ? 'debug' : 'info',
-                transport: !isProduction
-                    ? { target: 'pino-pretty', options: { colorize: true } }
-                    : undefined,
-                autoLogging: false,
-                customProps: (req: IncomingMessage, _res: ServerResponse) => ({
-                    context: 'HTTP',
-                    correlationId: req.headers['x-correlation-id'] || 'no-correlation-id',
-                }),
-            } as any,
+            pinoHttp: pinoHttpConfig,
         }),
     ],
     exports: [LoggerModule],

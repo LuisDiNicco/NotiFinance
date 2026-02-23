@@ -1,10 +1,8 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column } from 'typeorm';
+import { BaseEntity } from '../../../../../../shared/infrastructure/base/database/BaseEntity';
 
 @Entity('notification_templates')
-export class NotificationTemplateEntity {
-    @PrimaryGeneratedColumn('uuid')
-    id!: string;
-
+export class NotificationTemplateEntity extends BaseEntity {
     @Column({ type: 'varchar', length: 150 })
     name!: string;
 
@@ -16,10 +14,4 @@ export class NotificationTemplateEntity {
 
     @Column({ type: 'text' })
     bodyTemplate!: string;
-
-    @CreateDateColumn()
-    createdAt!: Date;
-
-    @UpdateDateColumn()
-    updatedAt!: Date;
 }

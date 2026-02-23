@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TemplateCompilerService } from '../../../../../src/modules/template/application/TemplateCompilerService';
 import { ITemplateRepository, TEMPLATE_REPO } from '../../../../../src/modules/template/application/ITemplateRepository';
 import { NotificationTemplate } from '../../../../../src/modules/template/domain/entities/NotificationTemplate';
-import { NotFoundException } from '@nestjs/common';
+import { TemplateNotFoundError } from '../../../../../src/modules/template/domain/errors/TemplateNotFoundError';
 
 describe('TemplateCompilerService', () => {
     let service: TemplateCompilerService;
@@ -51,8 +51,8 @@ describe('TemplateCompilerService', () => {
         expect(result.subject).toBe('Hello ');
     });
 
-    it('should throw NotFoundException if template does not exist', async () => {
+    it('should throw TemplateNotFoundError if template does not exist', async () => {
         repo.findByEventType.mockResolvedValue(null);
-        await expect(service.compileTemplate('unknown', {})).rejects.toThrow(NotFoundException);
+        await expect(service.compileTemplate('unknown', {})).rejects.toThrow(TemplateNotFoundError);
     });
 });

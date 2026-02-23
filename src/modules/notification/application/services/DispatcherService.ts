@@ -1,8 +1,9 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventPayload } from '../../../ingestion/domain/EventPayload';
 import { TemplateCompilerService } from '../../../template/application/TemplateCompilerService';
 import { PreferencesService } from '../../../preferences/application/PreferencesService';
 import { CHANNEL_PROVIDERS, IChannelProvider } from './IChannelProvider';
+import { PreferencesNotFoundError } from '../../../preferences/domain/errors/PreferencesNotFoundError';
 
 @Injectable()
 export class DispatcherService {
@@ -21,12 +22,12 @@ export class DispatcherService {
         let preferences;
         try {
             preferences = await this.preferencesService.getPreferences(event.recipientId);
-        } catch (e) {
-            if (e instanceof NotFoundException) {
+        } catch (error) {
+            if (error instanceof PreferencesNotFoundError) {
                 this.logger.warn(`[Trace: ${correlationId}] No preferences found for user ${event.recipientId}. Discarding event.`);
                 return; // Business rule: Discard if no explicit preferences are created.
             }
-            throw e;
+            throw error;
         }
 
         // 2. Resolve and Compile Template

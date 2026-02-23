@@ -1,0 +1,175 @@
+# Production Docker Compose Configuration
+# 
+# This is a reference for production deployment.
+# In production, use separate database hosts and managed services.
+#
+# Best practices from development_rules.md §16 (Infrastructure as Code):
+# - No .env files copied to containers
+# - Non-root user execution
+# - Proper networking and security groups
+# - Health checks on all services
+#
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  noticore-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: noticore_backend_prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?error}
+      DB_NAME: ${DB_NAME:-noticore}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: ${RABBITMQ_URL:?error}
+      CORS_ORIGIN: ${CORS_ORIGIN:?error}
+      LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - noticore-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: noticore_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?error}
+      POSTGRES_DB: ${DB_NAME:-noticore}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - noticore-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    # Production: Use managed database service instead (AWS RDS, Heroku Postgres, etc.)
+
+  redis:
+    image: redis:7-alpine
+    container_name: noticore_redis_prod
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --requirepass ${REDIS_PASSWORD:?error}
+    volumes:
+      - redis_data_prod:/data
+    networks:
+      - noticore-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    # Production: Use managed cache service instead (AWS ElastiCache, Redis Cloud, etc.)
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: noticore_rabbitmq_prod
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?error}
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_data_prod:/var/lib/rabbitmq
+    networks:
+      - noticore-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    # Management UI only accessible internally in production
+    # Production: Use managed message broker (AWS SQS, CloudAMQP, RabbitMQ Cloud, etc.)
+
+volumes:
+  postgres_data_prod:
+    driver: local
+  redis_data_prod:
+    driver: local
+  rabbitmq_data_prod:
+    driver: local
+
+networks:
+  noticore-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Production Deployment Notes:
+# ===========================
+#
+# 1. Secrets Management:
+#    - Use Docker secrets or environment variable managers
+#    - Never hardcode credentials in docker-compose.yml
+#    - Use ${VARIABLE?error} syntax to enforce required variables
+#
+# 2. Database:
+#    - Replace with managed service (AWS RDS, Google Cloud SQL, Azure Database)
+#    - Enable automated backups and point-in-time recovery
+#    - Use high-availability replication
+#
+# 3. Cache:
+#    - Replace with AWS ElastiCache, Redis Cloud, or similar
+#    - Enable Redis Cluster for horizontal scaling
+#    - Configure persistence and replication
+#
+# 4. Message Broker:
+#    - Replace with AWS SQS/SNS, Google Pub/Sub, or CloudAMQP
+#    - Configure dead-letter queues for failed messages
+#    - Enable message persistence
+#
+# 5. Monitoring & Logging:
+#    - Use centralized logging (ELK, Splunk, CloudWatch)
+#    - Import Prometheus metrics to monitoring system
+#    - Set up alerting for service failures
+#
+# 6. Networking:
+#    - Place databases in private subnets
+#    - Use VPC for secure inter-container communication
+#    - Configure security groups to restrict access
+#
+# 7. Updates & Maintenance:
+#    - Use blue-green deployments for zero-downtime updates
+#    - Test container updates in staging environment first
+#    - Regular security patching of base images
+#
+# See development_rules.md §16 for additional best practices.

@@ -1,5 +1,6 @@
 import { IsEnum, IsObject, IsString, IsUUID } from 'class-validator';
-import { EventPayload, EventType } from '../../../../../domain/EventPayload';
+import { EventPayload } from '../../../../../domain/EventPayload';
+import { EventType } from '../../../../../domain/enums/EventType';
 
 export class EventPayloadRequest {
     @IsUUID('4', { message: 'eventId must be a valid UUID v4' })

@@ -1,6 +1,12 @@
 import { Catch, ExceptionFilter, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Response } from 'express';
 
+interface ErrorResponse {
+    code: string;
+    message: string;
+    errors?: unknown;
+}
+
 @Catch()
 export class CustomExceptionsFilter implements ExceptionFilter {
     private readonly logger = new Logger(CustomExceptionsFilter.name);
@@ -16,7 +22,7 @@ export class CustomExceptionsFilter implements ExceptionFilter {
         }
 
         let status = HttpStatus.INTERNAL_SERVER_ERROR;
-        let body: any = { code: 'INTERNAL_ERROR', message: 'Internal server error' };
+        let body: ErrorResponse = { code: 'INTERNAL_ERROR', message: 'Internal server error' };
 
         if (exception instanceof HttpException) {
             status = exception.getStatus();
@@ -24,14 +30,21 @@ export class CustomExceptionsFilter implements ExceptionFilter {
 
             if (typeof exResponse === 'object' && exResponse !== null) {
                 // Class validator format
-                if ('message' in exResponse && Array.isArray((exResponse as any).message)) {
+                const exResponseObj = exResponse as Record<string, unknown>;
+                if ('message' in exResponseObj && Array.isArray(exResponseObj['message'])) {
                     body = {
                         code: 'VALIDATION_ERROR',
                         message: 'Input validation failed',
-                        errors: (exResponse as any).message
+                        errors: exResponseObj['message']
+                    };
+                } else if (typeof exResponseObj === 'object' && 'code' in exResponseObj && 'message' in exResponseObj) {
+                    body = {
+                        code: String(exResponseObj['code']),
+                        message: String(exResponseObj['message']),
+                        errors: exResponseObj['errors'],
                     };
                 } else {
-                    body = exResponse;
+                    body = { code: 'HTTP_ERROR', message: String(exResponseObj) };
                 }
             } else {
                 body = { code: 'HTTP_ERROR', message: exception.message };
@@ -41,12 +54,17 @@ export class CustomExceptionsFilter implements ExceptionFilter {
             body = { code: exception.name, message: exception.message };
         }
 
-        this.logger.error(`[${status}] ${body.code} - ${body.message}`, exception instanceof Error ? exception.stack : exception);
+        this.logger.error(
+            `[${status}] ${body.code} - ${body.message}`,
+            exception instanceof Error ? exception.stack : exception
+        );
         response.status(status).json(body);
     }
 
     private mapErrorToStatus(error: Error): number {
         const statusMap = new Map([
+            ['PreferencesNotFoundError', HttpStatus.NOT_FOUND],
+            ['TemplateNotFoundError', HttpStatus.NOT_FOUND],
             ['EntityNotFound', HttpStatus.NOT_FOUND],
             ['ValidationError', HttpStatus.BAD_REQUEST],
             ['InvalidStateTransitionError', HttpStatus.CONFLICT],

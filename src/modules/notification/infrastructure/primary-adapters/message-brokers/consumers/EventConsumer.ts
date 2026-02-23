@@ -3,6 +3,13 @@ import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
 import { DispatcherService } from '../../../../application/services/DispatcherService';
 import { EventPayload } from '../../../../../ingestion/domain/EventPayload';
 
+interface RabbitMQMessage {
+    payload: EventPayload;
+    options?: {
+        headers?: Record<string, unknown>;
+    };
+}
+
 @Controller()
 export class EventConsumer {
     private readonly logger = new Logger(EventConsumer.name);
@@ -11,12 +18,12 @@ export class EventConsumer {
 
     @EventPattern('notification.*')
     async handleIncomingEvent(
-        @Payload() message: any,
+        @Payload() message: RabbitMQMessage,
         @Ctx() context: RmqContext,
     ): Promise<void> {
         const channel = context.getChannelRef();
         const originalMsg = context.getMessage();
-        const correlationId = message.options?.headers?.['x-correlation-id'] || 'amqp-missing-id';
+        const correlationId = (message.options?.headers?.['x-correlation-id'] as string) || 'amqp-missing-id';
         const payload: EventPayload = message.payload;
 
         this.logger.log(`[Trace: ${correlationId}] Consuming RabbitMQ message for Event: ${payload?.eventId}`);
@@ -29,7 +36,7 @@ export class EventConsumer {
         } catch (error) {
             this.logger.error(`[Trace: ${correlationId}] Technical/Logical failure whilst dispatching event.`, error);
 
-            if (error instanceof Error && error.name === 'NotFoundException') {
+            if (error instanceof Error && error.name === 'PreferencesNotFoundError') {
                 this.logger.warn(`[Trace: ${correlationId}] Dropping message permanently due to Business Error: ${error.message}`);
                 channel.ack(originalMsg);
             } else {

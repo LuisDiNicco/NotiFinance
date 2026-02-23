@@ -1,4 +1,4 @@
-import { NotificationChannel } from '../../../preferences/domain/entities/UserPreference';
+import { NotificationChannel } from '../../../preferences/domain/enums/NotificationChannel';
 
 export interface IChannelProvider {
     channelType: NotificationChannel;

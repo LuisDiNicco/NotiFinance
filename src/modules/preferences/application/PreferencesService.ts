@@ -1,7 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { IPreferencesRepository } from './IPreferencesRepository';
 import { PREFERENCES_REPO } from './IPreferencesRepository';
-import { NotificationChannel, UserPreference } from '../domain/entities/UserPreference';
+import { NotificationChannel } from '../domain/enums/NotificationChannel';
+import { UserPreference } from '../domain/entities/UserPreference';
+import { PreferencesNotFoundError } from '../domain/errors/PreferencesNotFoundError';
 
 @Injectable()
 export class PreferencesService {
@@ -13,7 +15,7 @@ export class PreferencesService {
     public async getPreferences(userId: string): Promise<UserPreference> {
         const prefs = await this.repo.findByUserId(userId);
         if (!prefs) {
-            throw new NotFoundException(`Preferences for user ${userId} not found`);
+            throw new PreferencesNotFoundError(userId);
         }
         return prefs;
     }

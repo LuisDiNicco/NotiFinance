@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DispatcherService } from '../../../../../src/modules/notification/application/services/DispatcherService';
-import { TemplateCompilerService } from '../../../../../src/modules/template/application/TemplateCompilerService';
-import { PreferencesService } from '../../../../../src/modules/preferences/application/PreferencesService';
-import { CHANNEL_PROVIDERS, IChannelProvider } from '../../../../../src/modules/notification/application/services/IChannelProvider';
-import { EventPayload, EventType } from '../../../../../src/modules/ingestion/domain/EventPayload';
-import { NotificationChannel, UserPreference } from '../../../../../src/modules/preferences/domain/entities/UserPreference';
-import { NotFoundException } from '@nestjs/common';
+import { DispatcherService } from '../../../../../../src/modules/notification/application/services/DispatcherService';
+import { TemplateCompilerService } from '../../../../../../src/modules/template/application/TemplateCompilerService';
+import { PreferencesService } from '../../../../../../src/modules/preferences/application/PreferencesService';
+import { CHANNEL_PROVIDERS, IChannelProvider } from '../../../../../../src/modules/notification/application/services/IChannelProvider';
+import { EventPayload } from '../../../../../../src/modules/ingestion/domain/EventPayload';
+import { EventType } from '../../../../../../src/modules/ingestion/domain/enums/EventType';
+import { NotificationChannel } from '../../../../../../src/modules/preferences/domain/enums/NotificationChannel';
+import { UserPreference } from '../../../../../../src/modules/preferences/domain/entities/UserPreference';
+import { PreferencesNotFoundError } from '../../../../../../src/modules/preferences/domain/errors/PreferencesNotFoundError';
 
 describe('DispatcherService', () => {
     let dispatcher: DispatcherService;
@@ -47,7 +49,7 @@ describe('DispatcherService', () => {
 
     it('should discard event if user preference is not found', async () => {
         const event = new EventPayload('ev-1', EventType.PAYMENT_SUCCESS, 'user-1', {});
-        preferencesService.getPreferences.mockRejectedValue(new NotFoundException());
+        preferencesService.getPreferences.mockRejectedValue(new PreferencesNotFoundError('user-1'));
 
         await dispatcher.dispatchEvent(event, 'corr-id-1');
 

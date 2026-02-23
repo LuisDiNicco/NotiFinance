@@ -1,11 +1,9 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { NotificationChannel } from '../../../../domain/entities/UserPreference';
+import { Entity, Column } from 'typeorm';
+import { NotificationChannel } from '../../../../domain/enums/NotificationChannel';
+import { BaseEntity } from '../../../../../../shared/infrastructure/base/database/BaseEntity';
 
 @Entity('user_preferences')
-export class UserPreferenceEntity {
-    @PrimaryGeneratedColumn('uuid')
-    id!: string;
-
+export class UserPreferenceEntity extends BaseEntity {
     @Column({ type: 'varchar', length: 255, unique: true })
     userId!: string;
 
@@ -14,10 +12,4 @@ export class UserPreferenceEntity {
 
     @Column({ type: 'jsonb', default: [] })
     disabledEventTypes!: string[];
-
-    @CreateDateColumn()
-    createdAt!: Date;
-
-    @UpdateDateColumn()
-    updatedAt!: Date;
 }

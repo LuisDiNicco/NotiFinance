@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IChannelProvider } from '../../../application/services/IChannelProvider';
-import { NotificationChannel } from '../../../../preferences/domain/entities/UserPreference';
+import { NotificationChannel } from '../../../../preferences/domain/enums/NotificationChannel';
 
 @Injectable()
 export class EmailChannelAdapter implements IChannelProvider {

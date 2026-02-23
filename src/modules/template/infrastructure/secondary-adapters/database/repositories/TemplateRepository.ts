@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { ITemplateRepository } from '../../../../application/ITemplateRepository';
 import { NotificationTemplate } from '../../../../domain/entities/NotificationTemplate';
 import { NotificationTemplateEntity } from '../entities/NotificationTemplateEntity';
+import { NotificationTemplateMapper } from '../maps/NotificationTemplateMapper';
 
 @Injectable()
 export class TemplateRepository implements ITemplateRepository {
@@ -16,35 +17,23 @@ export class TemplateRepository implements ITemplateRepository {
         const entity = await this.repo.findOne({ where: { eventType } });
         if (!entity) return null;
 
-        const domain = new NotificationTemplate(
-            entity.name,
-            entity.eventType,
-            entity.subjectTemplate,
-            entity.bodyTemplate,
-        );
-        domain.id = entity.id;
-        return domain;
+        return NotificationTemplateMapper.toDomain(entity);
     }
 
     async save(template: NotificationTemplate): Promise<NotificationTemplate> {
         let entity = await this.repo.findOne({ where: { eventType: template.eventType } });
 
+        const persistenceData = NotificationTemplateMapper.toPersistence(template);
+
         if (!entity) {
-            entity = this.repo.create({
-                name: template.name,
-                eventType: template.eventType,
-                subjectTemplate: template.subjectTemplate,
-                bodyTemplate: template.bodyTemplate,
-            });
+            entity = this.repo.create(persistenceData);
         } else {
-            entity.name = template.name;
-            entity.subjectTemplate = template.subjectTemplate;
-            entity.bodyTemplate = template.bodyTemplate;
+            entity.name = persistenceData.name;
+            entity.subjectTemplate = persistenceData.subjectTemplate;
+            entity.bodyTemplate = persistenceData.bodyTemplate;
         }
 
         const saved = await this.repo.save(entity);
-        const domain = new NotificationTemplate(saved.name, saved.eventType, saved.subjectTemplate, saved.bodyTemplate);
-        domain.id = saved.id;
-        return domain;
+        return NotificationTemplateMapper.toDomain(saved);
     }
 }

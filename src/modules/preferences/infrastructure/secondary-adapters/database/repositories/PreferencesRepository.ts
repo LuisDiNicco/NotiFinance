@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { IPreferencesRepository } from '../../../../application/IPreferencesRepository';
 import { UserPreference } from '../../../../domain/entities/UserPreference';
 import { UserPreferenceEntity } from '../entities/UserPreferenceEntity';
+import { UserPreferenceMapper } from '../maps/UserPreferenceMapper';
 
 @Injectable()
 export class PreferencesRepository implements IPreferencesRepository {
@@ -16,28 +17,22 @@ export class PreferencesRepository implements IPreferencesRepository {
         const entity = await this.repo.findOne({ where: { userId } });
         if (!entity) return null;
 
-        const domain = new UserPreference(entity.userId, entity.optInChannels, entity.disabledEventTypes);
-        domain.id = entity.id;
-        return domain;
+        return UserPreferenceMapper.toDomain(entity);
     }
 
     async save(preference: UserPreference): Promise<UserPreference> {
         let entity = await this.repo.findOne({ where: { userId: preference.userId } });
 
+        const persistenceData = UserPreferenceMapper.toPersistence(preference);
+
         if (!entity) {
-            entity = this.repo.create({
-                userId: preference.userId,
-                optInChannels: preference.optInChannels,
-                disabledEventTypes: preference.disabledEventTypes,
-            });
+            entity = this.repo.create(persistenceData);
         } else {
-            entity.optInChannels = preference.optInChannels;
-            entity.disabledEventTypes = preference.disabledEventTypes;
+            entity.optInChannels = persistenceData.optInChannels;
+            entity.disabledEventTypes = persistenceData.disabledEventTypes;
         }
 
         const saved = await this.repo.save(entity);
-        const domain = new UserPreference(saved.userId, saved.optInChannels, saved.disabledEventTypes);
-        domain.id = saved.id;
-        return domain;
+        return UserPreferenceMapper.toDomain(saved);
     }
 }

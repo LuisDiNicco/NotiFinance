@@ -1,60 +1,91 @@
 # NotiCore - Event-Driven Notification Engine
 
-A production-ready Notification engine built with NestJS traversing Domain-Driven Design strictly adhering to Hexagonal architectures. 
+NotiCore is a backend notification system that processes events, evaluates user preferences, compiles templates, and dispatches notifications across multiple channels (Email, SMS, In-App). Built with NestJS following Hexagonal Architecture principles with strict separation of concerns, type safety, and distributed tracing.
 
-## Features
-- **Idempotency** powered by Redis
-- **Message Broker routing** via RabbitMQ
-- **Strict Data Validation** on HTTP bound configurations
-- **Configurable Template Engine** natively baked-in
-- **Generic Channel Dispatching** (supports Mock Email and Socket.io paths natively)
-- **Centralized Pino.js Tracing** with correlationId persistence
+## Quick Start
 
-## Prerequisites
-- Node.js v20+
-- Docker & Docker Compose (for Postgres, Redis, RabbitMQ)
+### Prerequisites
+- Node.js 18+
+- Docker and Docker Compose installed
 
-## Getting Started
+### Setup and Run
 
-### 1. Infrastructure Up
-Boot up the backing services:
 ```bash
-docker-compose up -d
-```
-
-### 2. Installation
-Install strict dependencies:
-```bash
+# Install dependencies
 npm install
-```
 
-### 3. Running the Engine
-```bash
-# development
-npm run start
-
-# watch mode
+# Start development environment (automatically starts Docker containers)
 npm run start:dev
 
-# production mode
-npm run start:prod
+# The application will start on http://localhost:3000
+# API documentation available at http://localhost:3000/api
 ```
 
-### 4. Testing
-We include e2e and domain-level unit tests natively isolated:
+### Available Commands
+
 ```bash
-# Unit Tests
-npm run test
-
-# E2E test
-npm run test:e2e
+npm run build              # Compile TypeScript
+npm run start              # Run production build
+npm run start:debug        # Debug mode
+npm test                   # Run unit tests
+npm run test:cov          # Run tests with coverage
+npm run test:e2e          # Run end-to-end tests
+npm run lint              # Check and fix code style
+npm run docker:up         # Start Docker containers manually
+npm run docker:down       # Stop Docker containers
+npm run docker:logs       # View container logs
 ```
 
-## Architecture
-See `architecture.md` for a comprehensive detail on how Hexagonal isolation was achieved here.
+## How It Works
 
-## How it works (The Flow)
-1. Send an HTTP `POST /events` with a strictly validated UUID event payload.
-2. The endpoint checks Redis for idempotency.
-3. It emits the event onto the AMQP bus and returns 202.
-4. The background consumer receives the event, pulls active user preferences, retrieves the desired notification template string, compiles it, and routes to Mock active workers.
+1. Client sends event via HTTP POST `/events` with validated payload
+2. Idempotency check via Redis (no duplicate processing)
+3. Event published to RabbitMQ message queue
+4. Background consumer receives event
+5. Consumer resolves user preferences and notification template
+6. Template compiled with event data
+7. Notification dispatched to enabled channels (Email, SMS, In-App)
+
+## Project Structure
+
+```
+src/
+├── domain/              # Business logic (entities, enums, errors)
+├── application/         # Use cases and orchestration (services, interfaces)
+└── infrastructure/      # Framework implementations (adapters, repositories, controllers)
+    ├── primary-adapters/      # HTTP controllers, message consumers
+    └── secondary-adapters/    # Database, external APIs, channel implementations
+```
+
+## Core Features
+
+- Event ingestion with idempotency guarantees via Redis
+- RabbitMQ message routing with manual acknowledgment strategy
+- Template engine supporting variable interpolation
+- Multi-channel notification dispatch (Email, SMS, In-App)
+- Comprehensive input validation with class-validator
+- Distributed tracing with correlation IDs
+- Structured logging via Pino
+- Type-safe database layer with TypeORM
+
+## Database & Services
+
+The application requires three backing services (automatically started):
+
+- PostgreSQL 15: Event and configuration storage
+- Redis 7: Idempotency caching and distributed locks
+- RabbitMQ 3: Event message queue with management UI at http://localhost:15672
+
+Connection details are configured via `.env` file (created automatically from `.env.example` on first run).
+
+## Environment Setup
+
+On first run, `.env` is automatically created from `.env.example` with sensible defaults. For production or custom configuration, edit `.env` with appropriate values before starting the application.
+
+## Architecture Details
+
+For comprehensive architectural decisions, layer separation, design patterns, and implementation details see [architecture.md](architecture.md).
+
+## Development Standards
+
+The project enforces Clean/Hexagonal Architecture through strict folder structure and dependency rules. All code must maintain type safety (TypeScript strict mode), pass ESLint validation, and be covered by tests. See [development_rules.md](development_rules.md) for detailed standards.

@@ -1,7 +1,8 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { ITemplateRepository } from './ITemplateRepository';
 import { TEMPLATE_REPO } from './ITemplateRepository';
 import { NotificationTemplate } from '../domain/entities/NotificationTemplate';
+import { TemplateNotFoundError } from '../domain/errors/TemplateNotFoundError';
 
 export interface CompiledTemplate {
     subject: string;
@@ -18,7 +19,7 @@ export class TemplateCompilerService {
         const template = await this.repo.findByEventType(eventType);
 
         if (!template) {
-            throw new NotFoundException(`Template not found for eventType: ${eventType}`);
+            throw new TemplateNotFoundError(eventType);
         }
 
         return {
@@ -31,9 +32,14 @@ export class TemplateCompilerService {
         return this.repo.save(template);
     }
 
-    private render(tpl: string, data: Record<string, any>): string {
-        return tpl.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, key) => {
-            const value = key.split('.').reduce((o: any, i: string) => (o ? o[i] : undefined), data);
+    private render(tpl: string, data: Record<string, unknown>): string {
+        return tpl.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, key: string) => {
+            const value = key.split('.').reduce((o: unknown, i: string): unknown => {
+                if (o !== null && o !== undefined && typeof o === 'object') {
+                    return (o as Record<string, unknown>)[i];
+                }
+                return undefined;
+            }, data);
             return value !== undefined ? String(value) : '';
         });
     }

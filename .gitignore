@@ -1,11 +1,50 @@
+# Environment variables - NEVER commit
 .env
+.env.local
+.env.*.local
+
+# Dependencies
 node_modules
-dist
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+.nyc_output
+
+# Build artifacts
+/dist
+dist-ssr
+*.tsbuildinfo
+build/
+
+# IDE and Editor
 .vscode
 .idea
+*.swp
+*.swo
+*~
 .DS_Store
-.agent
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+.agent
 *.pdf
-best_practices.md
 
