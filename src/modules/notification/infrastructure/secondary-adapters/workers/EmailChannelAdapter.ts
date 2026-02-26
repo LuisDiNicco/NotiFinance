@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { IChannelProvider } from '../../../application/services/IChannelProvider';
+import {
+  IChannelProvider,
+  NotificationDispatchPayload,
+} from '../../../application/services/IChannelProvider';
 import { NotificationChannel } from '../../../../preferences/domain/enums/NotificationChannel';
 
 @Injectable()
@@ -10,15 +13,14 @@ export class EmailChannelAdapter implements IChannelProvider {
 
   async send(
     userId: string,
-    subject: string,
-    body: string,
+    payload: NotificationDispatchPayload,
     correlationId: string,
   ): Promise<void> {
     this.logger.log(
       `[Trace: ${correlationId}] Sending EMAIL to User [${userId}]`,
     );
     this.logger.debug(
-      `[Trace: ${correlationId}] Subject: ${subject} | Body length: ${body.length}`,
+      `[Trace: ${correlationId}] Subject: ${payload.title} | Body length: ${payload.body.length}`,
     );
 
     let lastError: Error | null = null;
@@ -27,8 +29,8 @@ export class EmailChannelAdapter implements IChannelProvider {
       try {
         await this.sendToProvider(
           userId,
-          subject,
-          body,
+          payload.title,
+          payload.body,
           correlationId,
           attempt,
         );

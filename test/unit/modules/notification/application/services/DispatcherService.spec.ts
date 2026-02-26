@@ -12,6 +12,7 @@ import { NotificationChannel } from '../../../../../../src/modules/preferences/d
 import { UserPreference } from '../../../../../../src/modules/preferences/domain/entities/UserPreference';
 import { PreferencesNotFoundError } from '../../../../../../src/modules/preferences/domain/errors/PreferencesNotFoundError';
 import { NotificationService } from '../../../../../../src/modules/notification/application/services/NotificationService';
+import { Notification } from '../../../../../../src/modules/notification/domain/entities/Notification';
 
 describe('DispatcherService', () => {
   let dispatcher: DispatcherService;
@@ -33,6 +34,7 @@ describe('DispatcherService', () => {
 
     notificationService = {
       getUserNotifications: jest.fn(),
+      getUserNotificationsTotal: jest.fn(),
       getUnreadCount: jest.fn(),
       createNotification: jest.fn(),
       markAsRead: jest.fn(),
@@ -94,6 +96,17 @@ describe('DispatcherService', () => {
       subject: 'Payment Successful',
       body: 'You paid 100',
     });
+    const persisted = new Notification({
+      userId: 'user-2',
+      alertId: null,
+      title: 'Payment Successful',
+      body: 'You paid 100',
+      type: EventType.ALERT_PRICE_ABOVE,
+      metadata: { amount: 100 },
+      isRead: false,
+    });
+    persisted.id = 'notif-1';
+    notificationService.createNotification.mockResolvedValue(persisted);
 
     await dispatcher.dispatchEvent(event, 'corr-id-2');
 
@@ -103,8 +116,14 @@ describe('DispatcherService', () => {
     );
     expect(mockEmailChannel.send).toHaveBeenCalledWith(
       'user-2',
-      'Payment Successful',
-      'You paid 100',
+      {
+        id: 'notif-1',
+        title: 'Payment Successful',
+        body: 'You paid 100',
+        type: EventType.ALERT_PRICE_ABOVE,
+        metadata: { amount: 100 },
+        createdAt: expect.any(String),
+      },
       'corr-id-2',
     );
   });
@@ -129,6 +148,17 @@ describe('DispatcherService', () => {
       subject: 'Alert',
       body: '...',
     });
+    const persisted = new Notification({
+      userId: 'user-3',
+      alertId: null,
+      title: 'Alert',
+      body: '...',
+      type: EventType.ALERT_RISK_ABOVE,
+      metadata: {},
+      isRead: false,
+    });
+    persisted.id = 'notif-2';
+    notificationService.createNotification.mockResolvedValue(persisted);
 
     await dispatcher.dispatchEvent(event, 'corr-id-3');
 

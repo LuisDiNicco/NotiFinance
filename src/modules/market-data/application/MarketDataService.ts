@@ -140,6 +140,14 @@ export class MarketDataService {
     return this.assetRepository.findAll(type);
   }
 
+  public async getAssetsPaginated(params: {
+    type?: AssetType;
+    page: number;
+    limit: number;
+  }): Promise<{ data: Asset[]; total: number }> {
+    return this.assetRepository.findPaginated(params);
+  }
+
   public async getAssetByTicker(ticker: string): Promise<Asset> {
     const asset = await this.assetRepository.findByTicker(ticker);
 

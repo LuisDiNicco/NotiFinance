@@ -15,16 +15,27 @@ export class AssetController {
   @Get()
   @ApiOperation({ summary: 'Get asset catalog by optional type' })
   @ApiResponse({ status: 200 })
-  public async getAssets(
-    @Query() query: AssetListQueryRequest,
-  ): Promise<Asset[]> {
-    const assets = await this.marketDataService.getAssets(query.type);
+  public async getAssets(@Query() query: AssetListQueryRequest): Promise<{
+    data: Asset[];
+    meta: { page: number; limit: number; total: number; totalPages: number };
+  }> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const result = await this.marketDataService.getAssetsPaginated({
+      type: query.type,
+      page,
+      limit,
+    });
 
-    if (!query.limit) {
-      return assets;
-    }
-
-    return assets.slice(0, query.limit);
+    return {
+      data: result.data,
+      meta: {
+        page,
+        limit,
+        total: result.total,
+        totalPages: Math.max(1, Math.ceil(result.total / limit)),
+      },
+    };
   }
 
   @Get('top/gainers')
@@ -32,8 +43,13 @@ export class AssetController {
   @ApiResponse({ status: 200 })
   public async getTopGainers(
     @Query() query: AssetListQueryRequest,
-  ): Promise<Asset[]> {
-    return this.marketDataService.getTopGainers(query.type, query.limit ?? 5);
+  ): Promise<{ data: Asset[] }> {
+    return {
+      data: await this.marketDataService.getTopGainers(
+        query.type,
+        query.limit ?? 5,
+      ),
+    };
   }
 
   @Get('top/losers')
@@ -41,8 +57,13 @@ export class AssetController {
   @ApiResponse({ status: 200 })
   public async getTopLosers(
     @Query() query: AssetListQueryRequest,
-  ): Promise<Asset[]> {
-    return this.marketDataService.getTopLosers(query.type, query.limit ?? 5);
+  ): Promise<{ data: Asset[] }> {
+    return {
+      data: await this.marketDataService.getTopLosers(
+        query.type,
+        query.limit ?? 5,
+      ),
+    };
   }
 
   @Get(':ticker')

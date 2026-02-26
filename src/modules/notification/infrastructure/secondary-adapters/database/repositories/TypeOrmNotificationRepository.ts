@@ -33,6 +33,15 @@ export class TypeOrmNotificationRepository implements INotificationRepository {
     return this.repository.count({ where: { userId, isRead: false } });
   }
 
+  public async countByUser(
+    userId: string,
+    unreadOnly: boolean,
+  ): Promise<number> {
+    return this.repository.count({
+      where: unreadOnly ? { userId, isRead: false } : { userId },
+    });
+  }
+
   public async findById(notificationId: string): Promise<Notification | null> {
     const entity = await this.repository.findOne({
       where: { id: notificationId },
@@ -46,14 +55,16 @@ export class TypeOrmNotificationRepository implements INotificationRepository {
     return NotificationMapper.toDomain(saved);
   }
 
-  public async markAllAsRead(userId: string): Promise<void> {
-    await this.repository
+  public async markAllAsRead(userId: string): Promise<number> {
+    const result = await this.repository
       .createQueryBuilder()
       .update(NotificationEntity)
       .set({ isRead: true, readAt: new Date() })
       .where('"userId" = :userId', { userId })
       .andWhere('"isRead" = false')
       .execute();
+
+    return result.affected ?? 0;
   }
 
   public async delete(notificationId: string): Promise<void> {

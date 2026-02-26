@@ -12,7 +12,14 @@ export class SearchController {
   @Get()
   @ApiOperation({ summary: 'Search assets by ticker or name' })
   @ApiResponse({ status: 200 })
-  public async search(@Query() query: SearchQueryRequest): Promise<Asset[]> {
-    return this.marketDataService.searchAssets(query.q, query.limit ?? 10);
+  public async search(
+    @Query() query: SearchQueryRequest,
+  ): Promise<{ data: Asset[] }> {
+    return {
+      data: await this.marketDataService.searchAssets(
+        query.q,
+        query.limit ?? 10,
+      ),
+    };
   }
 }

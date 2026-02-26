@@ -66,7 +66,7 @@ describe('Watchlist endpoints (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/watchlist')
       .expect(200);
-    expect(response.body).toHaveLength(1);
+    expect(response.body.data).toHaveLength(1);
   });
 
   it('/api/v1/watchlist (POST)', async () => {
@@ -81,6 +81,6 @@ describe('Watchlist endpoints (e2e)', () => {
   it('/api/v1/watchlist/:ticker (DELETE)', async () => {
     await request(app.getHttpServer())
       .delete('/api/v1/watchlist/GGAL')
-      .expect(200);
+      .expect(204);
   });
 });

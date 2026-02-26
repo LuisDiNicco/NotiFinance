@@ -55,6 +55,22 @@ export class AlertService {
     return this.alertRepository.findByUserIdPaginated(userId, page, limit);
   }
 
+  public async getUserAlertsTotal(userId: string): Promise<number> {
+    return this.alertRepository.countByUserId(userId);
+  }
+
+  public async getUserAlertById(
+    userId: string,
+    alertId: string,
+  ): Promise<Alert> {
+    const alert = await this.alertRepository.findById(alertId);
+    if (!alert || alert.userId !== userId) {
+      throw new AlertNotFoundError(alertId);
+    }
+
+    return alert;
+  }
+
   public async updateAlert(
     userId: string,
     alertId: string,

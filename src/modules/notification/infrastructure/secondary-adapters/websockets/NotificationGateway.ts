@@ -3,13 +3,16 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { verify } from 'jsonwebtoken';
+import { NotificationDispatchPayload } from '../../../application/services/IChannelProvider';
 
 @WebSocketGateway({
+  namespace: '/notifications',
   cors: { origin: '*' },
 })
 export class NotificationGateway
@@ -41,10 +44,11 @@ export class NotificationGateway
   }
 
   private resolveUserIdFromToken(token: string): string | null {
-    const secret = this.configService.get<string>(
-      'auth.jwtSecret',
-      'change-me-access-secret',
-    );
+    const secret = this.configService.get<string>('auth.jwtSecret');
+    if (!secret) {
+      this.logger.error('Missing auth.jwtSecret for notifications gateway');
+      return null;
+    }
 
     try {
       const decoded = verify(token, secret);
@@ -73,10 +77,15 @@ export class NotificationGateway
       return;
     }
 
-    void client.join(`user-${userId}`);
+    void client.join(`user:${userId}`);
     this.logger.log(
-      `Client ${client.id} connected and joined room user-${userId}`,
+      `Client ${client.id} connected and joined room user:${userId}`,
     );
+  }
+
+  @SubscribeMessage('subscribe')
+  public handleSubscribe(): void {
+    // Auto-subscription is handled on connect after JWT validation.
   }
 
   handleDisconnect(client: Socket) {
@@ -85,18 +94,32 @@ export class NotificationGateway
 
   public emitNotification(
     userId: string,
-    subject: string,
-    body: string,
+    payload: NotificationDispatchPayload,
     correlationId: string,
   ) {
-    this.server.to(`user-${userId}`).emit('new_notification', {
-      subject,
-      body,
-      correlationId,
-      timestamp: new Date().toISOString(),
+    this.server.to(`user:${userId}`).emit('notification:new', {
+      id: payload.id,
+      title: payload.title,
+      body: payload.body,
+      type: payload.type,
+      metadata: payload.metadata,
+      createdAt: payload.createdAt,
     });
     this.logger.log(
-      `[Trace: ${correlationId}] Emitted 'new_notification' via WS to user-${userId}`,
+      `[Trace: ${correlationId}] Emitted 'notification:new' via WS to user:${userId}`,
+    );
+  }
+
+  public emitNotificationCount(
+    userId: string,
+    unreadCount: number,
+    correlationId: string,
+  ) {
+    this.server.to(`user:${userId}`).emit('notification:count', {
+      unreadCount,
+    });
+    this.logger.log(
+      `[Trace: ${correlationId}] Emitted 'notification:count' (${unreadCount}) to user:${userId}`,
     );
   }
 }

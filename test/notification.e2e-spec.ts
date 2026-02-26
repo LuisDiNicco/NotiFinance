@@ -26,10 +26,11 @@ describe('Notification endpoints (e2e)', () => {
 
   const notificationServiceMock = {
     getUserNotifications: jest.fn().mockResolvedValue([notification]),
+    getUserNotificationsTotal: jest.fn().mockResolvedValue(1),
     getUnreadCount: jest.fn().mockResolvedValue(1),
     createNotification: jest.fn(),
-    markAsRead: jest.fn().mockResolvedValue(undefined),
-    markAllAsRead: jest.fn().mockResolvedValue(undefined),
+    markAsRead: jest.fn().mockResolvedValue(notification),
+    markAllAsRead: jest.fn().mockResolvedValue(1),
     deleteNotification: jest.fn().mockResolvedValue(undefined),
   };
 
@@ -75,14 +76,14 @@ describe('Notification endpoints (e2e)', () => {
       .get('/api/v1/notifications?unreadOnly=true&page=1&limit=20')
       .expect(200);
 
-    expect(response.body).toHaveLength(1);
+    expect(response.body.data).toHaveLength(1);
   });
 
   it('/api/v1/notifications/count (GET)', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/notifications/count')
       .expect(200);
-    expect(response.body.unread).toBe(1);
+    expect(response.body.unreadCount).toBe(1);
   });
 
   it('/api/v1/notifications/:id/read (PATCH)', async () => {

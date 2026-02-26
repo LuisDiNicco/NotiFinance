@@ -16,4 +16,11 @@ export class AssetListQueryRequest {
   @Min(1)
   @Max(100)
   public readonly limit?: number;
+
+  @ApiPropertyOptional({ example: 1, minimum: 1 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  public readonly page?: number;
 }

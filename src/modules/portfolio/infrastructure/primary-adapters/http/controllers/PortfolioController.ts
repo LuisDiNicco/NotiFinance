@@ -63,10 +63,57 @@ export class PortfolioController {
   @Get()
   @ApiOperation({ summary: 'Get user portfolios' })
   @ApiResponse({ status: 200 })
-  public async getUserPortfolios(
-    @Req() req: AuthenticatedRequest,
-  ): Promise<Portfolio[]> {
-    return this.portfolioService.getUserPortfolios(req.user.sub);
+  public async getUserPortfolios(@Req() req: AuthenticatedRequest): Promise<{
+    data: Array<
+      Portfolio & {
+        summary: {
+          totalValueArs: number;
+          totalCostArs: number;
+          unrealizedPnl: number;
+          unrealizedPnlPct: number;
+          holdingsCount: number;
+        };
+      }
+    >;
+  }> {
+    const portfolios = await this.portfolioService.getUserPortfolios(
+      req.user.sub,
+    );
+    const data = await Promise.all(
+      portfolios.map(async (portfolio) => {
+        const holdings = portfolio.id
+          ? await this.portfolioService.getPortfolioHoldings(
+              req.user.sub,
+              portfolio.id,
+            )
+          : [];
+
+        const totalValueArs = holdings.reduce(
+          (acc, holding) => acc + holding.marketValue,
+          0,
+        );
+        const totalCostArs = holdings.reduce(
+          (acc, holding) => acc + holding.costBasis,
+          0,
+        );
+        const unrealizedPnl = totalValueArs - totalCostArs;
+        const unrealizedPnlPct =
+          totalCostArs > 0 ? (unrealizedPnl / totalCostArs) * 100 : 0;
+
+        return {
+          ...portfolio,
+          summary: {
+            totalValueArs,
+            totalCostArs,
+            unrealizedPnl,
+            unrealizedPnlPct,
+            holdingsCount: holdings.length,
+          },
+        };
+      }),
+    );
+
+    return { data };
   }
 
   @Get(':id')
@@ -98,8 +145,38 @@ export class PortfolioController {
   public async getHoldings(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-  ): Promise<Holding[]> {
-    return this.portfolioService.getPortfolioHoldings(req.user.sub, id);
+  ): Promise<{
+    portfolioId: string;
+    totalValueArs: number;
+    totalCostArs: number;
+    unrealizedPnl: number;
+    unrealizedPnlPct: number;
+    holdings: Holding[];
+  }> {
+    const holdings = await this.portfolioService.getPortfolioHoldings(
+      req.user.sub,
+      id,
+    );
+    const totalValueArs = holdings.reduce(
+      (acc, holding) => acc + holding.marketValue,
+      0,
+    );
+    const totalCostArs = holdings.reduce(
+      (acc, holding) => acc + holding.costBasis,
+      0,
+    );
+    const unrealizedPnl = totalValueArs - totalCostArs;
+    const unrealizedPnlPct =
+      totalCostArs > 0 ? (unrealizedPnl / totalCostArs) * 100 : 0;
+
+    return {
+      portfolioId: id,
+      totalValueArs,
+      totalCostArs,
+      unrealizedPnl,
+      unrealizedPnlPct,
+      holdings,
+    };
   }
 
   @Get(':id/distribution')
@@ -109,8 +186,58 @@ export class PortfolioController {
   public async getDistribution(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-  ): Promise<Array<{ ticker: string; weight: number }>> {
+  ): Promise<{
+    byAsset: Array<{ ticker: string; value: number; weight: number }>;
+    byType: Array<{ type: string; value: number; weight: number }>;
+    bySector: Array<{ sector: string; value: number; weight: number }>;
+    byCurrency: Array<{ currency: string; value: number; weight: number }>;
+  }> {
     return this.portfolioService.getPortfolioDistribution(req.user.sub, id);
+  }
+
+  @Get(':id/performance')
+  @ApiOperation({ summary: 'Get portfolio performance by period' })
+  @ApiParam({ name: 'id' })
+  @ApiResponse({ status: 200 })
+  public async getPerformance(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Query('period') period = '3M',
+  ): Promise<{
+    portfolioId: string;
+    period: string;
+    startValue: number;
+    endValue: number;
+    totalReturn: number;
+    dataPoints: Array<{ date: string; value: number }>;
+    benchmarks: {
+      merval: { startValue: number; endValue: number; return: number };
+      dollarMep: { startValue: number; endValue: number; return: number };
+    };
+  }> {
+    const performance = await this.portfolioService.getPortfolioPerformance(
+      req.user.sub,
+      id,
+      period,
+    );
+
+    const startValue = performance.points[0]?.value ?? 0;
+    const endValue = performance.points.at(-1)?.value ?? startValue;
+    const totalReturn =
+      startValue > 0 ? ((endValue - startValue) / startValue) * 100 : 0;
+
+    return {
+      portfolioId: id,
+      period: performance.period,
+      startValue,
+      endValue,
+      totalReturn,
+      dataPoints: performance.points,
+      benchmarks: {
+        merval: { startValue: 100, endValue: 100, return: 0 },
+        dollarMep: { startValue: 100, endValue: 100, return: 0 },
+      },
+    };
   }
 
   @Post(':id/trades')

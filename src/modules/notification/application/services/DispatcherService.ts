@@ -49,17 +49,18 @@ export class DispatcherService {
     );
 
     // 3. Persist in-app notification record
-    await this.notificationService.createNotification({
-      userId: event.recipientId,
-      alertId:
-        typeof event.metadata['alertId'] === 'string'
-          ? event.metadata['alertId']
-          : null,
-      title: compiled.subject,
-      body: compiled.body,
-      type: event.eventType,
-      metadata: event.metadata,
-    });
+    const persistedNotification =
+      await this.notificationService.createNotification({
+        userId: event.recipientId,
+        alertId:
+          typeof event.metadata['alertId'] === 'string'
+            ? event.metadata['alertId']
+            : null,
+        title: compiled.subject,
+        body: compiled.body,
+        type: event.eventType,
+        metadata: event.metadata,
+      });
 
     // 4. Dispatch to Allowed Target Channels
     const dispatchPromises = [];
@@ -74,8 +75,16 @@ export class DispatcherService {
         dispatchPromises.push(
           provider.send(
             event.recipientId,
-            compiled.subject,
-            compiled.body,
+            {
+              id: persistedNotification.id ?? event.eventId,
+              title: persistedNotification.title,
+              body: persistedNotification.body,
+              type: persistedNotification.type,
+              metadata: persistedNotification.metadata,
+              createdAt: (
+                persistedNotification.createdAt ?? new Date()
+              ).toISOString(),
+            },
             correlationId,
           ),
         );

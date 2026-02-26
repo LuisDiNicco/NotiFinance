@@ -35,10 +35,12 @@ describe('Market data endpoints (e2e)', () => {
     getCountryRisk: jest
       .fn()
       .mockResolvedValue(new CountryRisk(680, -0.8, new Date())),
-    getCountryRiskHistory: jest.fn().mockResolvedValue([
-      new CountryRisk(680, -0.8, new Date('2024-01-02T00:00:00.000Z')),
-      new CountryRisk(690, 0.4, new Date('2024-01-01T00:00:00.000Z')),
-    ]),
+    getCountryRiskHistory: jest
+      .fn()
+      .mockResolvedValue([
+        new CountryRisk(680, -0.8, new Date('2024-01-02T00:00:00.000Z')),
+        new CountryRisk(690, 0.4, new Date('2024-01-01T00:00:00.000Z')),
+      ]),
     getAssetStats: jest.fn().mockResolvedValue({
       latestClose: 1500000,
       latestVolume: 120000000,
@@ -119,6 +121,10 @@ describe('Market data endpoints (e2e)', () => {
         },
       ],
     }),
+    getAssetsPaginated: jest.fn().mockResolvedValue({
+      data: assets,
+      total: assets.length,
+    }),
     getAssets: jest.fn().mockResolvedValue(assets),
     getAssetByTicker: jest.fn().mockResolvedValue(assets[0]),
     searchAssets: jest.fn().mockResolvedValue([assets[0]]),
@@ -187,8 +193,8 @@ describe('Market data endpoints (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/market/status')
       .expect(200);
-    expect(response.body).toHaveProperty('marketOpen');
-    expect(response.body).toHaveProperty('lastUpdate');
+    expect(response.body).toHaveProperty('isOpen');
+    expect(response.body).toHaveProperty('currentPhase');
   });
 
   it('/api/v1/market/top-movers (GET)', async () => {
@@ -204,7 +210,8 @@ describe('Market data endpoints (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/assets?type=STOCK&limit=1')
       .expect(200);
-    expect(response.body).toHaveLength(1);
+    expect(Array.isArray(response.body.data)).toBe(true);
+    expect(response.body).toHaveProperty('meta');
   });
 
   it('/api/v1/assets/:ticker (GET)', async () => {
@@ -218,7 +225,7 @@ describe('Market data endpoints (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/search?q=ggal&limit=5')
       .expect(200);
-    expect(response.body[0].ticker).toBe('GGAL');
+    expect(response.body.data[0].ticker).toBe('GGAL');
   });
 
   it('/api/v1/assets/:ticker/quotes (GET)', async () => {

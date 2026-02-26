@@ -24,6 +24,13 @@ export class NotificationService {
     );
   }
 
+  public async getUserNotificationsTotal(
+    userId: string,
+    unreadOnly: boolean,
+  ): Promise<number> {
+    return this.notificationRepository.countByUser(userId, unreadOnly);
+  }
+
   public async getUnreadCount(userId: string): Promise<number> {
     return this.notificationRepository.countUnread(userId);
   }
@@ -52,19 +59,19 @@ export class NotificationService {
   public async markAsRead(
     userId: string,
     notificationId: string,
-  ): Promise<void> {
+  ): Promise<Notification | null> {
     const notification =
       await this.notificationRepository.findById(notificationId);
     if (!notification || notification.userId !== userId) {
-      return;
+      return null;
     }
 
     notification.markAsRead();
-    await this.notificationRepository.save(notification);
+    return this.notificationRepository.save(notification);
   }
 
-  public async markAllAsRead(userId: string): Promise<void> {
-    await this.notificationRepository.markAllAsRead(userId);
+  public async markAllAsRead(userId: string): Promise<number> {
+    return this.notificationRepository.markAllAsRead(userId);
   }
 
   public async deleteNotification(

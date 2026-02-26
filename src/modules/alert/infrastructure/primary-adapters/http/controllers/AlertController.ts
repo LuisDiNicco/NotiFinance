@@ -60,12 +60,37 @@ export class AlertController {
     @Req() req: AuthenticatedRequest,
     @Query('page') page = '1',
     @Query('limit') limit = '20',
-  ): Promise<Alert[]> {
-    return this.alertService.getUserAlerts(
-      req.user.sub,
-      Number(page),
-      Number(limit),
-    );
+  ): Promise<{
+    data: Alert[];
+    meta: { page: number; limit: number; total: number; totalPages: number };
+  }> {
+    const parsedPage = Number(page);
+    const parsedLimit = Number(limit);
+    const [data, total] = await Promise.all([
+      this.alertService.getUserAlerts(req.user.sub, parsedPage, parsedLimit),
+      this.alertService.getUserAlertsTotal(req.user.sub),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page: parsedPage,
+        limit: parsedLimit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / parsedLimit)),
+      },
+    };
+  }
+
+  @Get(':alertId')
+  @ApiOperation({ summary: 'Get alert detail' })
+  @ApiParam({ name: 'alertId' })
+  @ApiResponse({ status: 200 })
+  public async getAlertById(
+    @Req() req: AuthenticatedRequest,
+    @Param('alertId') alertId: string,
+  ): Promise<Alert> {
+    return this.alertService.getUserAlertById(req.user.sub, alertId);
   }
 
   @Patch(':alertId')

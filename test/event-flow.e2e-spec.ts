@@ -225,8 +225,14 @@ describe('Market -> Alert -> Notification flow (integration)', () => {
     expect(notificationService.createNotification).toHaveBeenCalledTimes(1);
     expect(emailChannel.send).toHaveBeenCalledWith(
       'user-1',
-      'GGAL superó el umbral',
-      'Precio actual: 8100',
+      {
+        id: 'notif-1',
+        title: 'GGAL superó el umbral',
+        body: 'Precio actual: 8100',
+        type: EventType.ALERT_PRICE_ABOVE,
+        metadata: {},
+        createdAt: expect.any(String),
+      },
       'corr-flow-1',
     );
     expect(alertContext.channel.ack).toHaveBeenCalledTimes(1);

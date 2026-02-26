@@ -35,6 +35,10 @@ export class TypeOrmAlertRepository implements IAlertRepository {
     return entity ? AlertMapper.toDomain(entity) : null;
   }
 
+  public async countByUserId(userId: string): Promise<number> {
+    return this.repository.count({ where: { userId } });
+  }
+
   public async findActiveByAssetId(assetId: string): Promise<Alert[]> {
     const entities = await this.repository.find({
       where: { assetId, status: AlertStatus.ACTIVE },

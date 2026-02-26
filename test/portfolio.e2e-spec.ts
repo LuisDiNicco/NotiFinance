@@ -49,9 +49,16 @@ describe('Portfolio endpoints (e2e)', () => {
         weight: 100,
       }),
     ]),
-    getPortfolioDistribution: jest
-      .fn()
-      .mockResolvedValue([{ ticker: 'GGAL', weight: 100 }]),
+    getPortfolioDistribution: jest.fn().mockResolvedValue({
+      byAsset: [{ ticker: 'GGAL', value: 10500, weight: 100 }],
+      byType: [{ type: 'STOCK', value: 10500, weight: 100 }],
+      bySector: [{ sector: 'Financiero', value: 10500, weight: 100 }],
+      byCurrency: [{ currency: 'ARS', value: 10500, weight: 100 }],
+    }),
+    getPortfolioPerformance: jest.fn().mockResolvedValue({
+      period: '3M',
+      points: [{ date: '2026-02-26', value: 10500 }],
+    }),
   };
 
   const tradeServiceMock = {
@@ -112,7 +119,7 @@ describe('Portfolio endpoints (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/portfolios')
       .expect(200);
-    expect(response.body).toHaveLength(1);
+    expect(response.body.data).toHaveLength(1);
   });
 
   it('/api/v1/portfolios/:id/trades (POST)', async () => {
@@ -135,8 +142,8 @@ describe('Portfolio endpoints (e2e)', () => {
       .get(`/api/v1/portfolios/${portfolio.id}/holdings`)
       .expect(200);
 
-    expect(response.body).toHaveLength(1);
-    expect(response.body[0].ticker).toBe('GGAL');
+    expect(response.body.holdings).toHaveLength(1);
+    expect(response.body.holdings[0].ticker).toBe('GGAL');
   });
 
   it('/api/v1/portfolios/:id/distribution (GET)', async () => {
@@ -144,7 +151,16 @@ describe('Portfolio endpoints (e2e)', () => {
       .get(`/api/v1/portfolios/${portfolio.id}/distribution`)
       .expect(200);
 
-    expect(response.body).toHaveLength(1);
-    expect(response.body[0].weight).toBe(100);
+    expect(response.body.byAsset).toHaveLength(1);
+    expect(response.body.byAsset[0].weight).toBe(100);
+  });
+
+  it('/api/v1/portfolios/:id/performance (GET)', async () => {
+    const response = await request(app.getHttpServer())
+      .get(`/api/v1/portfolios/${portfolio.id}/performance?period=3M`)
+      .expect(200);
+
+    expect(response.body.period).toBe('3M');
+    expect(Array.isArray(response.body.dataPoints)).toBe(true);
   });
 });

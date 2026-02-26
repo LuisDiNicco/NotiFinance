@@ -32,6 +32,8 @@ describe('Alert endpoints (e2e)', () => {
   const alertServiceMock = {
     createAlert: jest.fn().mockResolvedValue(baseAlert),
     getUserAlerts: jest.fn().mockResolvedValue([baseAlert]),
+    getUserAlertsTotal: jest.fn().mockResolvedValue(1),
+    getUserAlertById: jest.fn().mockResolvedValue(baseAlert),
     updateAlert: jest.fn().mockResolvedValue(baseAlert),
     changeStatus: jest.fn().mockResolvedValue(baseAlert),
     deleteAlert: jest.fn().mockResolvedValue(undefined),
@@ -93,7 +95,14 @@ describe('Alert endpoints (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/alerts')
       .expect(200);
-    expect(response.body).toHaveLength(1);
+    expect(response.body.data).toHaveLength(1);
+  });
+
+  it('/api/v1/alerts/:id (GET)', async () => {
+    const response = await request(app.getHttpServer())
+      .get(`/api/v1/alerts/${baseAlert.id}`)
+      .expect(200);
+    expect(response.body.id).toBe(baseAlert.id);
   });
 
   it('/api/v1/alerts/:id (PATCH)', async () => {

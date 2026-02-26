@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Logger } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MarketDataService } from '../../../../application/MarketDataService';
 import { DollarQuote } from '../../../../domain/entities/DollarQuote';
@@ -13,6 +13,8 @@ import { MarketHistoryQueryRequest } from './request/MarketHistoryQueryRequest';
 @ApiTags('Market')
 @Controller('market')
 export class MarketController {
+  private readonly logger = new Logger(MarketController.name);
+
   constructor(private readonly marketDataService: MarketDataService) {}
 
   private toArgentinaDate(date: Date): Date {
@@ -74,6 +76,29 @@ export class MarketController {
       closesAt: null,
       nextOpen: nextOpen.toISOString(),
     };
+  }
+
+  private resolveMarketPhase(isOpen: boolean): string {
+    if (isOpen) {
+      return 'CONTINUOUS_TRADING';
+    }
+
+    const nowAr = this.toArgentinaDate(new Date());
+    const weekday = nowAr.getDay();
+    const hour = nowAr.getHours();
+    if (weekday === 0 || weekday === 6) {
+      return 'CLOSED_WEEKEND';
+    }
+
+    if (hour < 10) {
+      return 'PRE_OPEN';
+    }
+
+    if (hour >= 17) {
+      return 'POST_CLOSE';
+    }
+
+    return 'CLOSED';
   }
 
   private buildDollarPoint(quote: DollarQuote): {
@@ -282,7 +307,11 @@ export class MarketController {
       const mervalStats = await this.marketDataService.getAssetStats('MERV', 2);
       mervalValue = mervalStats.latestClose;
       mervalChangePct = mervalStats.changePctFromPeriodStart;
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown error';
+      this.logger.warn(
+        `Unable to enrich market summary with MERV stats: ${message}`,
+      );
       mervalValue = null;
       mervalChangePct = null;
     }
@@ -338,22 +367,22 @@ export class MarketController {
   @ApiOperation({ summary: 'Get market data refresh status' })
   @ApiResponse({ status: 200 })
   public async getMarketStatus(): Promise<{
-    now: string;
-    marketOpen: boolean;
-    schedules: {
-      stocks: string;
-      cedears: string;
-      bonds: string;
-      dollar: string;
-      risk: string;
-    };
-    lastUpdate: {
-      dollar: string | null;
-      risk: string | null;
-      quotes: string | null;
-    };
+    isOpen: boolean;
+    currentPhase: string;
+    closesAt: string | null;
+    nextOpen: string | null;
+    timezone: string;
   }> {
-    return this.marketDataService.getMarketStatus();
+    const status = await this.marketDataService.getMarketStatus();
+    const statusFields = this.buildNextOpenAndClose(status.marketOpen);
+
+    return {
+      isOpen: status.marketOpen,
+      currentPhase: this.resolveMarketPhase(status.marketOpen),
+      closesAt: statusFields.closesAt,
+      nextOpen: statusFields.nextOpen,
+      timezone: 'America/Argentina/Buenos_Aires',
+    };
   }
 
   @Get('top-movers')

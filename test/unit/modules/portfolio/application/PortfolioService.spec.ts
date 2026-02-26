@@ -236,6 +236,11 @@ describe('PortfolioService', () => {
       'portfolio-1',
     );
 
-    expect(result).toEqual([{ ticker: 'GGAL', weight: 0.6 }]);
+    expect(result).toEqual({
+      byAsset: [{ ticker: 'GGAL', value: 1200, weight: 0.6 }],
+      byType: [{ type: 'UNKNOWN', value: 1200, weight: 100 }],
+      bySector: [{ sector: 'Unknown', value: 1200, weight: 100 }],
+      byCurrency: [{ currency: 'ARS', value: 1200, weight: 100 }],
+    });
   });
 });

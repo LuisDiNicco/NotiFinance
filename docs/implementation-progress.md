@@ -462,3 +462,49 @@ Validación de cierre de iteración:
 - ✅ `npm run lint` (OK)
 - ✅ `npm run test:e2e` (OK) — **9/9 suites**, **38/38 tests**
 - ✅ `npm test` (OK) — **20/20 suites**, **124/124 tests**
+
+## Iteración de remediación adicional (2026-02-26)
+
+**Estado:** ✅ nuevos desvíos de contrato detectados y corregidos.
+
+Correcciones aplicadas:
+
+- WebSocket de notificaciones alineado a contrato docs:
+  - namespace explícito `/notifications`.
+  - evento emitido: `notification:new` (reemplaza `new_notification`).
+  - evento de contador: `notification:count`.
+  - payload emitido desde notificación persistida (`id`, `title`, `body`, `type`, `metadata`, `createdAt`).
+- Seguridad WS:
+  - eliminado fallback inseguro de secreto JWT hardcodeado en gateway.
+- Market status HTTP alineado:
+  - `GET /market/status` ahora responde `isOpen`, `currentPhase`, `closesAt`, `nextOpen`, `timezone`.
+- Colecciones HTTP normalizadas (docs + reglas agent):
+  - `GET /assets` → `{ data, meta }`.
+  - `GET /search` → `{ data }`.
+  - `GET /alerts` → `{ data, meta }`.
+  - `GET /notifications` → `{ data, meta }`.
+  - `GET /watchlist` → `{ data }`.
+  - `GET /portfolios` → `{ data }`.
+- Endpoints faltantes agregados:
+  - `GET /alerts/:alertId`.
+  - `GET /portfolios/:id/performance`.
+- Contratos portfolio enriquecidos:
+  - `GET /portfolios/:id/holdings` retorna resumen + `holdings`.
+  - `GET /portfolios/:id/distribution` retorna `byAsset/byType/bySector/byCurrency` con agregación real por tipo/sector/moneda.
+  - `GET /portfolios` retorna `data[]` con `summary` por portfolio.
+- Contratos watchlist y notifications afinados:
+  - `GET /watchlist` retorna `{ data }` y `DELETE /watchlist/:ticker` responde `204`.
+  - `GET /notifications/count` retorna `{ unreadCount }`.
+  - `PATCH /notifications/:id/read` retorna `{ id, isRead, readAt }`.
+  - `PATCH /notifications/read-all` retorna `{ updatedCount }`.
+- WS notifications afinado a docs:
+  - rooms privadas con convención `user:{userId}`.
+  - handler `subscribe` para compatibilidad explícita del cliente.
+- Ajuste de robustez de reglas de desarrollo:
+  - reemplazado catch silencioso en `MarketController` por log explícito y fallback controlado.
+
+Validación de esta iteración:
+
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test:e2e` (OK) — **9/9 suites**, **40/40 tests**
+- ✅ `npm test` (OK) — **20/20 suites**, **124/124 tests**

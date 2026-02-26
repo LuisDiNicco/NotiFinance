@@ -43,13 +43,32 @@ export class NotificationController {
     @Query('unreadOnly') unreadOnly = 'false',
     @Query('page') page = '1',
     @Query('limit') limit = '20',
-  ): Promise<Notification[]> {
-    return this.notificationService.getUserNotifications(
-      req.user.sub,
-      unreadOnly === 'true',
-      Number(page),
-      Number(limit),
-    );
+  ): Promise<{
+    data: Notification[];
+    meta: { page: number; limit: number; total: number; totalPages: number };
+  }> {
+    const parsedPage = Number(page);
+    const parsedLimit = Number(limit);
+    const unread = unreadOnly === 'true';
+    const [data, total] = await Promise.all([
+      this.notificationService.getUserNotifications(
+        req.user.sub,
+        unread,
+        parsedPage,
+        parsedLimit,
+      ),
+      this.notificationService.getUserNotificationsTotal(req.user.sub, unread),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page: parsedPage,
+        limit: parsedLimit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / parsedLimit)),
+      },
+    };
   }
 
   @Get('count')
@@ -57,9 +76,11 @@ export class NotificationController {
   @ApiResponse({ status: 200 })
   public async getUnreadCount(
     @Req() req: AuthenticatedRequest,
-  ): Promise<{ unread: number }> {
-    const unread = await this.notificationService.getUnreadCount(req.user.sub);
-    return { unread };
+  ): Promise<{ unreadCount: number }> {
+    const unreadCount = await this.notificationService.getUnreadCount(
+      req.user.sub,
+    );
+    return { unreadCount };
   }
 
   @Patch(':id/read')
@@ -69,15 +90,33 @@ export class NotificationController {
   public async markAsRead(
     @Req() req: AuthenticatedRequest,
     @Param('id') notificationId: string,
-  ): Promise<void> {
-    await this.notificationService.markAsRead(req.user.sub, notificationId);
+  ): Promise<{ id: string; isRead: boolean; readAt: string | null } | null> {
+    const notification = await this.notificationService.markAsRead(
+      req.user.sub,
+      notificationId,
+    );
+
+    if (!notification) {
+      return null;
+    }
+
+    return {
+      id: notification.id ?? notificationId,
+      isRead: notification.isRead,
+      readAt: notification.readAt?.toISOString() ?? null,
+    };
   }
 
   @Patch('read-all')
   @ApiOperation({ summary: 'Mark all notifications as read' })
   @ApiResponse({ status: 200 })
-  public async markAllAsRead(@Req() req: AuthenticatedRequest): Promise<void> {
-    await this.notificationService.markAllAsRead(req.user.sub);
+  public async markAllAsRead(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<{ updatedCount: number }> {
+    const updatedCount = await this.notificationService.markAllAsRead(
+      req.user.sub,
+    );
+    return { updatedCount };
   }
 
   @Delete(':id')

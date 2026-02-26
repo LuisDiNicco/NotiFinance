@@ -13,6 +13,7 @@ describe('NotificationService', () => {
   beforeEach(async () => {
     repository = {
       findByUserPaginated: jest.fn(),
+      countByUser: jest.fn(),
       countUnread: jest.fn(),
       findById: jest.fn(),
       save: jest.fn(),

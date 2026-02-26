@@ -10,6 +10,7 @@ export interface IAlertRepository {
     limit: number,
   ): Promise<Alert[]>;
   findById(alertId: string): Promise<Alert | null>;
+  countByUserId(userId: string): Promise<number>;
   findActiveByAssetId(assetId: string): Promise<Alert[]>;
   findActiveByType(alertType: AlertType): Promise<Alert[]>;
   countActiveByUserId(userId: string): Promise<number>;

@@ -22,6 +22,28 @@ export class TypeOrmAssetRepository implements IAssetRepository {
     return entities.map((entity) => this.toDomain(entity));
   }
 
+  public async findPaginated(params: {
+    type?: AssetType;
+    page: number;
+    limit: number;
+  }): Promise<{ data: Asset[]; total: number }> {
+    const where = params.type
+      ? { assetType: params.type, isActive: true }
+      : { isActive: true };
+
+    const [entities, total] = await this.repository.findAndCount({
+      where,
+      order: { ticker: 'ASC' },
+      skip: (params.page - 1) * params.limit,
+      take: params.limit,
+    });
+
+    return {
+      data: entities.map((entity) => this.toDomain(entity)),
+      total,
+    };
+  }
+
   public async findByTicker(ticker: string): Promise<Asset | null> {
     const normalizedTicker = ticker.trim().toUpperCase();
     const entity = await this.repository.findOne({

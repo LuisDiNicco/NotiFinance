@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Post,
   Req,
@@ -41,8 +42,8 @@ export class WatchlistController {
   @ApiResponse({ status: 200 })
   public async getWatchlist(
     @Req() req: AuthenticatedRequest,
-  ): Promise<WatchlistItem[]> {
-    return this.watchlistService.getUserWatchlist(req.user.sub);
+  ): Promise<{ data: WatchlistItem[] }> {
+    return { data: await this.watchlistService.getUserWatchlist(req.user.sub) };
   }
 
   @Post()
@@ -56,9 +57,10 @@ export class WatchlistController {
   }
 
   @Delete(':ticker')
+  @HttpCode(204)
   @ApiOperation({ summary: 'Remove ticker from authenticated user watchlist' })
   @ApiParam({ name: 'ticker', example: 'GGAL' })
-  @ApiResponse({ status: 200 })
+  @ApiResponse({ status: 204 })
   public async removeFromWatchlist(
     @Req() req: AuthenticatedRequest,
     @Param('ticker') ticker: string,

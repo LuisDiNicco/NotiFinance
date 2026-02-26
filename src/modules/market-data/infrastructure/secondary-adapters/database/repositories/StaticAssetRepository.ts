@@ -43,6 +43,23 @@ export class StaticAssetRepository implements IAssetRepository {
     );
   }
 
+  public findPaginated(params: {
+    type?: AssetType;
+    page: number;
+    limit: number;
+  }): Promise<{ data: Asset[]; total: number }> {
+    const filtered = params.type
+      ? this.assets.filter((asset) => asset.assetType === params.type)
+      : this.assets;
+    const start = (params.page - 1) * params.limit;
+    const end = start + params.limit;
+
+    return Promise.resolve({
+      data: filtered.slice(start, end),
+      total: filtered.length,
+    });
+  }
+
   public findByTicker(ticker: string): Promise<Asset | null> {
     const normalizedTicker = ticker.trim().toUpperCase();
     return Promise.resolve(
