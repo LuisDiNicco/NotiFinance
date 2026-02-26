@@ -19,6 +19,11 @@ export class RiskFetchJob {
     try {
       const latest = await this.marketDataService.refreshRiskData();
       this.marketGateway.emitRisk(latest);
+      const status = await this.marketDataService.getMarketStatus();
+      this.marketGateway.emitMarketStatus({
+        isOpen: status.marketOpen,
+        phase: status.marketOpen ? 'OPEN' : 'CLOSED',
+      });
       const durationMs = Date.now() - startedAt;
       this.logger.log(`Country risk refreshed in ${durationMs}ms`);
     } catch (error) {

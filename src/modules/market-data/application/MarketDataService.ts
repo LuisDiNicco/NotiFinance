@@ -33,6 +33,14 @@ import { DollarType } from '../domain/enums/DollarType';
 import { AssetNotFoundError } from '../domain/errors/AssetNotFoundError';
 import { MARKET_CACHE, type IMarketCache } from './IMarketCache';
 
+export interface MarketQuoteUpdate {
+  ticker: string;
+  priceArs: number;
+  changePct: number;
+  volume: number;
+  timestamp: string;
+}
+
 @Injectable()
 export class MarketDataService {
   private readonly logger = new Logger(MarketDataService.name);
@@ -380,15 +388,24 @@ export class MarketDataService {
     return risk;
   }
 
-  public async refreshStockQuotes(): Promise<number> {
+  public async refreshStockQuotes(): Promise<{
+    updatedCount: number;
+    updates: MarketQuoteUpdate[];
+  }> {
     return this.refreshQuotesByTypes([AssetType.STOCK], 10);
   }
 
-  public async refreshCedearQuotes(): Promise<number> {
+  public async refreshCedearQuotes(): Promise<{
+    updatedCount: number;
+    updates: MarketQuoteUpdate[];
+  }> {
     return this.refreshQuotesByTypes([AssetType.CEDEAR], 20);
   }
 
-  public async refreshBondQuotes(): Promise<number> {
+  public async refreshBondQuotes(): Promise<{
+    updatedCount: number;
+    updates: MarketQuoteUpdate[];
+  }> {
     return this.refreshQuotesByTypes(
       [AssetType.BOND, AssetType.LECAP, AssetType.BONCAP, AssetType.ON],
       20,
@@ -539,12 +556,13 @@ export class MarketDataService {
   private async refreshQuotesByTypes(
     types: AssetType[],
     chunkSize: number,
-  ): Promise<number> {
+  ): Promise<{ updatedCount: number; updates: MarketQuoteUpdate[] }> {
     const groupedAssets = await Promise.all(
       types.map((type) => this.assetRepository.findAll(type)),
     );
     const assets = groupedAssets.flat().filter((asset) => Boolean(asset.id));
     let updatedCount = 0;
+    const updates: MarketQuoteUpdate[] = [];
 
     for (let i = 0; i < assets.length; i += chunkSize) {
       const chunk = assets.slice(i, i + chunkSize);
@@ -566,6 +584,15 @@ export class MarketDataService {
               date: quoteWithAsset.date.toISOString(),
             });
 
+            updates.push({
+              ticker: asset.ticker,
+              priceArs:
+                quoteWithAsset.closePrice ?? quoteWithAsset.priceArs ?? 0,
+              changePct: quoteWithAsset.changePct ?? 0,
+              volume: quoteWithAsset.volume ?? 0,
+              timestamp: quoteWithAsset.date.toISOString(),
+            });
+
             return 1;
           } catch (error) {
             this.logger.warn(
@@ -583,7 +610,10 @@ export class MarketDataService {
       }
     }
 
-    return updatedCount;
+    return {
+      updatedCount,
+      updates,
+    };
   }
 
   private async fetchQuoteWithRetry(yahooTicker: string): Promise<MarketQuote> {

@@ -17,12 +17,18 @@ export class StockQuoteFetchJob {
     const startedAt = Date.now();
 
     try {
-      const updatedCount = await this.marketDataService.refreshStockQuotes();
-      this.marketGateway.emitQuoteUpdated({
-        scope: 'stocks',
-        updatedCount,
-        refreshedAt: new Date().toISOString(),
+      const { updatedCount, updates } =
+        await this.marketDataService.refreshStockQuotes();
+      for (const update of updates) {
+        this.marketGateway.emitQuoteUpdated(update);
+      }
+
+      const status = await this.marketDataService.getMarketStatus();
+      this.marketGateway.emitMarketStatus({
+        isOpen: status.marketOpen,
+        phase: status.marketOpen ? 'OPEN' : 'CLOSED',
       });
+
       const durationMs = Date.now() - startedAt;
       this.logger.log(
         `Stock quotes refreshed (${updatedCount} assets) in ${durationMs}ms`,

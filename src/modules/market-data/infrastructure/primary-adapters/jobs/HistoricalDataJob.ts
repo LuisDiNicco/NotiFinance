@@ -23,25 +23,23 @@ export class HistoricalDataJob {
         this.marketDataService.refreshBondQuotes(),
       ]);
 
-      this.marketGateway.emitQuoteUpdated({
-        scope: 'historical:stocks',
-        updatedCount: stocks,
-        refreshedAt: new Date().toISOString(),
-      });
-      this.marketGateway.emitQuoteUpdated({
-        scope: 'historical:cedears',
-        updatedCount: cedears,
-        refreshedAt: new Date().toISOString(),
-      });
-      this.marketGateway.emitQuoteUpdated({
-        scope: 'historical:bonds',
-        updatedCount: bonds,
-        refreshedAt: new Date().toISOString(),
+      for (const update of [
+        ...stocks.updates,
+        ...cedears.updates,
+        ...bonds.updates,
+      ]) {
+        this.marketGateway.emitQuoteUpdated(update);
+      }
+
+      const status = await this.marketDataService.getMarketStatus();
+      this.marketGateway.emitMarketStatus({
+        isOpen: status.marketOpen,
+        phase: status.marketOpen ? 'OPEN' : 'CLOSED',
       });
 
       const durationMs = Date.now() - startedAt;
       this.logger.log(
-        `Historical consolidation completed in ${durationMs}ms (stocks=${stocks}, cedears=${cedears}, bonds=${bonds})`,
+        `Historical consolidation completed in ${durationMs}ms (stocks=${stocks.updatedCount}, cedears=${cedears.updatedCount}, bonds=${bonds.updatedCount})`,
       );
     } catch (error) {
       const durationMs = Date.now() - startedAt;

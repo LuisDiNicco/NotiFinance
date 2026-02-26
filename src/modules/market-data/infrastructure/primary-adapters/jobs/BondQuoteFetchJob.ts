@@ -17,12 +17,18 @@ export class BondQuoteFetchJob {
     const startedAt = Date.now();
 
     try {
-      const updatedCount = await this.marketDataService.refreshBondQuotes();
-      this.marketGateway.emitQuoteUpdated({
-        scope: 'bonds',
-        updatedCount,
-        refreshedAt: new Date().toISOString(),
+      const { updatedCount, updates } =
+        await this.marketDataService.refreshBondQuotes();
+      for (const update of updates) {
+        this.marketGateway.emitQuoteUpdated(update);
+      }
+
+      const status = await this.marketDataService.getMarketStatus();
+      this.marketGateway.emitMarketStatus({
+        isOpen: status.marketOpen,
+        phase: status.marketOpen ? 'OPEN' : 'CLOSED',
       });
+
       const durationMs = Date.now() - startedAt;
       this.logger.log(
         `Bond quotes refreshed (${updatedCount} assets) in ${durationMs}ms`,

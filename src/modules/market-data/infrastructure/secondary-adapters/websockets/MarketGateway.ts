@@ -100,9 +100,11 @@ export class MarketGateway {
   }
 
   public emitQuoteUpdated(payload: {
-    scope: string;
-    updatedCount: number;
-    refreshedAt: string;
+    ticker: string;
+    priceArs: number;
+    changePct: number;
+    volume: number;
+    timestamp: string;
   }): void {
     const server = this.socketServer;
     if (!server) {
@@ -110,8 +112,18 @@ export class MarketGateway {
     }
 
     server.emit('market:quote', payload);
+    this.logger.log(`Emitted market:quote for ${payload.ticker}`);
+  }
+
+  public emitMarketStatus(payload: { isOpen: boolean; phase: string }): void {
+    const server = this.socketServer;
+    if (!server) {
+      return;
+    }
+
+    server.emit('market:status', payload);
     this.logger.log(
-      `Emitted market:quote for ${payload.scope} (${payload.updatedCount})`,
+      `Emitted market:status (${payload.phase}, open=${payload.isOpen})`,
     );
   }
 }

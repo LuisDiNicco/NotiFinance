@@ -20,6 +20,11 @@ export class DollarFetchJob {
       await this.marketDataService.refreshDollarData();
       const latest = await this.marketDataService.getDollarQuotes();
       this.marketGateway.emitDollar(latest);
+      const status = await this.marketDataService.getMarketStatus();
+      this.marketGateway.emitMarketStatus({
+        isOpen: status.marketOpen,
+        phase: status.marketOpen ? 'OPEN' : 'CLOSED',
+      });
       const durationMs = Date.now() - startedAt;
       this.logger.log(`Dollar data refreshed in ${durationMs}ms`);
     } catch (error) {

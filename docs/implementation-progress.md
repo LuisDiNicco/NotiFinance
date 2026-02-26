@@ -508,3 +508,25 @@ Validación de esta iteración:
 - ✅ `npm run lint` (OK)
 - ✅ `npm run test:e2e` (OK) — **9/9 suites**, **40/40 tests**
 - ✅ `npm test` (OK) — **20/20 suites**, **124/124 tests**
+
+## Iteración de remediación WS market (2026-02-26)
+
+**Estado:** ✅ contrato WebSocket de mercado alineado y revalidado.
+
+Correcciones aplicadas:
+
+- `market:quote` alineado al contrato documental:
+  - se eliminó payload agregado (`scope`, `updatedCount`, `refreshedAt`).
+  - ahora se emite por activo con payload `{ ticker, priceArs, changePct, volume, timestamp }`.
+- `market:status` implementado en gateway y emisión activa desde jobs (`stocks`, `cedears`, `bonds`, `dollar`, `risk`) con payload `{ isOpen, phase }`.
+- `MarketDataService` de refresh de cotizaciones devuelve estructura enriquecida `{ updatedCount, updates[] }` para desacoplar la generación de updates del transporte WS.
+- Jobs de mercado adaptados al nuevo contrato WS sin romper capas:
+  - emiten cada `market:quote` desde `updates[]`.
+  - emiten `market:status` post-refresh.
+- Tests unitarios de `MarketDataService` actualizados al nuevo contrato de retorno de refresh.
+
+Validación de esta iteración:
+
+- ✅ `npm run lint` (OK)
+- ✅ `npm test -- --runInBand` (OK) — **20/20 suites**, **124/124 tests**
+- ✅ `npm run test:e2e` (OK) — **9/9 suites**, **40/40 tests**

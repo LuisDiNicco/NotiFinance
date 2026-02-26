@@ -791,7 +791,8 @@ describe('MarketDataService', () => {
 
     const updated = await service.refreshStockQuotes();
 
-    expect(updated).toBe(1);
+    expect(updated.updatedCount).toBe(1);
+    expect(updated.updates).toHaveLength(1);
     expect(fallbackQuoteProvider.fetchQuote).toHaveBeenCalledWith('GGAL.BA');
     expect(quoteRepository.saveBulkQuotes).toHaveBeenCalled();
   });
@@ -801,7 +802,7 @@ describe('MarketDataService', () => {
 
     const updated = await service.refreshCedearQuotes();
 
-    expect(updated).toBe(0);
+    expect(updated.updatedCount).toBe(0);
     expect(assetRepository.findAll).toHaveBeenCalledWith(AssetType.CEDEAR);
   });
 
@@ -810,7 +811,7 @@ describe('MarketDataService', () => {
 
     const updated = await service.refreshBondQuotes();
 
-    expect(updated).toBe(0);
+    expect(updated.updatedCount).toBe(0);
     expect(assetRepository.findAll).toHaveBeenCalledTimes(4);
     expect(assetRepository.findAll).toHaveBeenNthCalledWith(1, AssetType.BOND);
     expect(assetRepository.findAll).toHaveBeenNthCalledWith(2, AssetType.LECAP);
@@ -873,7 +874,8 @@ describe('MarketDataService', () => {
 
     const updated = await localService.refreshStockQuotes();
 
-    expect(updated).toBe(1);
+    expect(updated.updatedCount).toBe(1);
+    expect(updated.updates).toHaveLength(1);
     expect(quoteProvider.fetchQuote).toHaveBeenCalledTimes(2);
     expect(fallbackQuoteProvider.fetchQuote).not.toHaveBeenCalled();
   });
@@ -916,7 +918,8 @@ describe('MarketDataService', () => {
 
     const updated = await service.refreshStockQuotes();
 
-    expect(updated).toBe(0);
+    expect(updated.updatedCount).toBe(0);
+    expect(updated.updates).toHaveLength(0);
   });
 
   it('processes stock refresh in multiple chunks', async () => {
@@ -939,7 +942,8 @@ describe('MarketDataService', () => {
 
     const updated = await service.refreshStockQuotes();
 
-    expect(updated).toBe(11);
+    expect(updated.updatedCount).toBe(11);
+    expect(updated.updates).toHaveLength(11);
     expect(quoteProvider.fetchQuote).toHaveBeenCalledTimes(11);
     expect(eventPublisher.publishEvent).toHaveBeenCalledTimes(11);
   });
@@ -976,6 +980,7 @@ describe('MarketDataService', () => {
 
     const updated = await localService.refreshStockQuotes();
 
-    expect(updated).toBe(0);
+    expect(updated.updatedCount).toBe(0);
+    expect(updated.updates).toHaveLength(0);
   });
 });
