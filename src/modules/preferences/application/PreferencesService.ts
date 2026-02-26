@@ -4,6 +4,7 @@ import { PREFERENCES_REPO } from './IPreferencesRepository';
 import { NotificationChannel } from '../domain/enums/NotificationChannel';
 import { UserPreference } from '../domain/entities/UserPreference';
 import { PreferencesNotFoundError } from '../domain/errors/PreferencesNotFoundError';
+import { DigestFrequency } from '../domain/enums/DigestFrequency';
 
 @Injectable()
 export class PreferencesService {
@@ -23,9 +24,19 @@ export class PreferencesService {
     public async createOrUpdatePreferences(
         userId: string,
         channels: NotificationChannel[],
-        disabledEvents: string[]
+        disabledEvents: string[],
+        quietHoursStart: string | null,
+        quietHoursEnd: string | null,
+        digestFrequency: DigestFrequency,
     ): Promise<UserPreference> {
-        const prefs = new UserPreference(userId, channels, disabledEvents);
+        const prefs = new UserPreference(
+            userId,
+            channels,
+            disabledEvents,
+            quietHoursStart,
+            quietHoursEnd,
+            digestFrequency,
+        );
         return this.repo.save(prefs);
     }
 }

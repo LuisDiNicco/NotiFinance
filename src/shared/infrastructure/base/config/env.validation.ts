@@ -64,6 +64,10 @@ class EnvironmentVariables {
     @IsOptional()
     DOLAR_API_URL: string = 'https://dolarapi.com/v1';
 
+    @IsString()
+    @IsOptional()
+    ALPHA_VANTAGE_API_KEY: string = '';
+
     @IsNumber()
     @IsOptional()
     MARKET_CHUNK_DELAY_MS: number = 300;

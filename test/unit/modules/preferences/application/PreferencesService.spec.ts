@@ -5,6 +5,7 @@ import {
     PREFERENCES_REPO,
 } from '../../../../../src/modules/preferences/application/IPreferencesRepository';
 import { NotificationChannel } from '../../../../../src/modules/preferences/domain/enums/NotificationChannel';
+import { DigestFrequency } from '../../../../../src/modules/preferences/domain/enums/DigestFrequency';
 import { UserPreference } from '../../../../../src/modules/preferences/domain/entities/UserPreference';
 import { PreferencesNotFoundError } from '../../../../../src/modules/preferences/domain/errors/PreferencesNotFoundError';
 
@@ -54,6 +55,9 @@ describe('PreferencesService', () => {
             'user-2',
             [NotificationChannel.EMAIL, NotificationChannel.IN_APP],
             ['alert.risk.above'],
+            '22:00',
+            '07:00',
+            DigestFrequency.DAILY,
         );
 
         repository.save.mockResolvedValue(savedPreference);
@@ -62,6 +66,9 @@ describe('PreferencesService', () => {
             'user-2',
             [NotificationChannel.EMAIL, NotificationChannel.IN_APP],
             ['alert.risk.above'],
+            '22:00',
+            '07:00',
+            DigestFrequency.DAILY,
         );
 
         expect(repository.save).toHaveBeenCalledWith(
@@ -69,6 +76,9 @@ describe('PreferencesService', () => {
                 userId: 'user-2',
                 optInChannels: [NotificationChannel.EMAIL, NotificationChannel.IN_APP],
                 disabledEventTypes: ['alert.risk.above'],
+                quietHoursStart: '22:00',
+                quietHoursEnd: '07:00',
+                digestFrequency: DigestFrequency.DAILY,
             }),
         );
         expect(result).toBe(savedPreference);

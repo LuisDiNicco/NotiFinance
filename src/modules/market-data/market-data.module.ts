@@ -12,12 +12,14 @@ import {
 import {
     COUNTRY_RISK_REPOSITORY,
 } from './application/ICountryRiskRepository';
-import { QUOTE_PROVIDER } from './application/IQuoteProvider';
+import { QUOTE_FALLBACK_PROVIDER, QUOTE_PROVIDER } from './application/IQuoteProvider';
 import { QUOTE_REPOSITORY } from './application/IQuoteRepository';
+import { MARKET_CACHE } from './application/IMarketCache';
 import { TypeOrmAssetRepository } from './infrastructure/secondary-adapters/database/repositories/TypeOrmAssetRepository';
 import { TypeOrmDollarQuoteRepository } from './infrastructure/secondary-adapters/database/repositories/TypeOrmDollarQuoteRepository';
 import { TypeOrmCountryRiskRepository } from './infrastructure/secondary-adapters/database/repositories/TypeOrmCountryRiskRepository';
 import { TypeOrmQuoteRepository } from './infrastructure/secondary-adapters/database/repositories/TypeOrmQuoteRepository';
+import { RedisMarketCache } from './infrastructure/secondary-adapters/cache/RedisMarketCache';
 import { AssetEntity } from './infrastructure/secondary-adapters/database/entities/AssetEntity';
 import { DollarQuoteEntity } from './infrastructure/secondary-adapters/database/entities/DollarQuoteEntity';
 import { CountryRiskEntity } from './infrastructure/secondary-adapters/database/entities/CountryRiskEntity';
@@ -25,6 +27,7 @@ import { MarketQuoteEntity } from './infrastructure/secondary-adapters/database/
 import { DolarApiClient } from './infrastructure/secondary-adapters/http/clients/DolarApiClient';
 import { RiskProviderClient } from './infrastructure/secondary-adapters/http/clients/RiskProviderClient';
 import { YahooFinanceClient } from './infrastructure/secondary-adapters/http/clients/YahooFinanceClient';
+import { AlphaVantageClient } from './infrastructure/secondary-adapters/http/clients/AlphaVantageClient';
 import { MarketController } from './infrastructure/primary-adapters/http/controllers/MarketController';
 import { AssetController } from './infrastructure/primary-adapters/http/controllers/AssetController';
 import { SearchController } from './infrastructure/primary-adapters/http/controllers/SearchController';
@@ -33,6 +36,7 @@ import { RiskFetchJob } from './infrastructure/primary-adapters/jobs/RiskFetchJo
 import { StockQuoteFetchJob } from './infrastructure/primary-adapters/jobs/StockQuoteFetchJob';
 import { CedearQuoteFetchJob } from './infrastructure/primary-adapters/jobs/CedearQuoteFetchJob';
 import { BondQuoteFetchJob } from './infrastructure/primary-adapters/jobs/BondQuoteFetchJob';
+import { HistoricalDataJob } from './infrastructure/primary-adapters/jobs/HistoricalDataJob';
 
 @Module({
     imports: [
@@ -71,11 +75,20 @@ import { BondQuoteFetchJob } from './infrastructure/primary-adapters/jobs/BondQu
             provide: QUOTE_PROVIDER,
             useClass: YahooFinanceClient,
         },
+        {
+            provide: QUOTE_FALLBACK_PROVIDER,
+            useClass: AlphaVantageClient,
+        },
+        {
+            provide: MARKET_CACHE,
+            useClass: RedisMarketCache,
+        },
         DollarFetchJob,
         RiskFetchJob,
         StockQuoteFetchJob,
         CedearQuoteFetchJob,
         BondQuoteFetchJob,
+        HistoricalDataJob,
     ],
     exports: [MarketDataService],
 })

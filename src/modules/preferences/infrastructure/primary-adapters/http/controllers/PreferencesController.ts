@@ -1,40 +1,56 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { JwtAuthGuard } from '../../../../../auth/infrastructure/primary-adapters/http/guards/JwtAuthGuard';
 import { PreferencesService } from '../../../../application/PreferencesService';
 import { PreferencesRequest } from './request/PreferencesRequest';
 import { UserPreferenceResponse } from '../responses/UserPreferenceResponse';
 
+interface AuthenticatedRequest extends Request {
+    user: {
+        sub: string;
+    };
+}
+
 @ApiTags('Preferences')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('preferences')
 export class PreferencesController {
     constructor(private readonly preferencesService: PreferencesService) { }
 
-    @Get(':userId')
-    @ApiOperation({ summary: 'Get user notification preferences' })
+    @Get()
+    @ApiOperation({ summary: 'Get authenticated user notification preferences' })
     @ApiResponse({
         status: 200,
         description: 'Preferences retrieved successfully',
         type: UserPreferenceResponse,
     })
     @ApiResponse({ status: 404, description: 'User preferences not found' })
-    async getPreferences(@Param('userId') userId: string): Promise<UserPreferenceResponse> {
-        const prefs = await this.preferencesService.getPreferences(userId);
+    async getPreferences(@Req() req: AuthenticatedRequest): Promise<UserPreferenceResponse> {
+        const prefs = await this.preferencesService.getPreferences(req.user.sub);
         return UserPreferenceResponse.fromEntity(prefs);
     }
 
-    @Post()
-    @ApiOperation({ summary: 'Create or update user notification preferences' })
+    @Put()
+    @ApiOperation({ summary: 'Create or update authenticated user notification preferences' })
     @ApiResponse({
-        status: 201,
+        status: 200,
         description: 'Preferences saved successfully',
         type: UserPreferenceResponse,
     })
-    async updatePreferences(@Body() payload: PreferencesRequest): Promise<UserPreferenceResponse> {
-        const entity = payload.toEntity();
+    async updatePreferences(
+        @Req() req: AuthenticatedRequest,
+        @Body() payload: PreferencesRequest,
+    ): Promise<UserPreferenceResponse> {
+        const entity = payload.toEntity(req.user.sub);
         const saved = await this.preferencesService.createOrUpdatePreferences(
             entity.userId,
             entity.optInChannels,
             entity.disabledEventTypes,
+            entity.quietHoursStart,
+            entity.quietHoursEnd,
+            entity.digestFrequency,
         );
         return UserPreferenceResponse.fromEntity(saved);
     }

@@ -7,6 +7,7 @@ import { PortfolioService } from './application/PortfolioService';
 import { TradeService } from './application/TradeService';
 import { HoldingsCalculator } from './application/HoldingsCalculator';
 import { PortfolioController } from './infrastructure/primary-adapters/http/controllers/PortfolioController';
+import { TradeController } from './infrastructure/primary-adapters/http/controllers/TradeController';
 import { PortfolioEntity } from './infrastructure/secondary-adapters/database/entities/PortfolioEntity';
 import { TradeEntity } from './infrastructure/secondary-adapters/database/entities/TradeEntity';
 import { TypeOrmPortfolioRepository } from './infrastructure/secondary-adapters/database/repositories/TypeOrmPortfolioRepository';
@@ -14,7 +15,7 @@ import { TypeOrmTradeRepository } from './infrastructure/secondary-adapters/data
 
 @Module({
     imports: [TypeOrmModule.forFeature([PortfolioEntity, TradeEntity]), MarketDataModule],
-    controllers: [PortfolioController],
+    controllers: [PortfolioController, TradeController],
     providers: [
         PortfolioService,
         TradeService,

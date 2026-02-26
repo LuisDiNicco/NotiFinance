@@ -1,12 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MarketDataService } from '../../../../application/MarketDataService';
 import { DollarQuote } from '../../../../domain/entities/DollarQuote';
 import { CountryRisk } from '../../../../domain/entities/CountryRisk';
 import { MarketQuote } from '../../../../domain/entities/MarketQuote';
 import { Asset } from '../../../../domain/entities/Asset';
 import { TopMoversQueryRequest } from './request/TopMoversQueryRequest';
-import { Query } from '@nestjs/common';
+import { Param, Query } from '@nestjs/common';
+import { DollarType } from '../../../../domain/enums/DollarType';
+import { MarketHistoryQueryRequest } from './request/MarketHistoryQueryRequest';
 
 @ApiTags('Market')
 @Controller('market')
@@ -20,11 +22,38 @@ export class MarketController {
         return this.marketDataService.getDollarQuotes();
     }
 
+    @Get('dollar/:type')
+    @ApiOperation({ summary: 'Get latest quote for a dollar type' })
+    @ApiParam({ name: 'type', enum: DollarType })
+    @ApiResponse({ status: 200 })
+    public async getDollarQuoteByType(@Param('type') type: DollarType): Promise<DollarQuote | null> {
+        const quotes = await this.marketDataService.getDollarQuotes();
+        return quotes.find((quote) => quote.type === type) ?? null;
+    }
+
+    @Get('dollar/history/:type')
+    @ApiOperation({ summary: 'Get historical quotes for a dollar type' })
+    @ApiParam({ name: 'type', enum: DollarType })
+    @ApiResponse({ status: 200 })
+    public async getDollarHistory(
+        @Param('type') type: DollarType,
+        @Query() query: MarketHistoryQueryRequest,
+    ): Promise<DollarQuote[]> {
+        return this.marketDataService.getDollarHistory(type, query.days ?? 30);
+    }
+
     @Get('risk')
     @ApiOperation({ summary: 'Get current country risk' })
     @ApiResponse({ status: 200 })
     public async getCountryRisk(): Promise<CountryRisk> {
         return this.marketDataService.getCountryRisk();
+    }
+
+    @Get('risk/history')
+    @ApiOperation({ summary: 'Get country risk history' })
+    @ApiResponse({ status: 200 })
+    public async getCountryRiskHistory(@Query() query: MarketHistoryQueryRequest): Promise<CountryRisk[]> {
+        return this.marketDataService.getCountryRiskHistory(query.days ?? 30);
     }
 
     @Get('summary')

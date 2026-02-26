@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { NotificationChannel } from '../../../../domain/enums/NotificationChannel';
 import { UserPreference } from '../../../../domain/entities/UserPreference';
+import { DigestFrequency } from '../../../../domain/enums/DigestFrequency';
 
 export class UserPreferenceResponse {
     @ApiProperty({
@@ -30,6 +31,27 @@ export class UserPreferenceResponse {
     })
     disabledEventTypes!: string[];
 
+    @ApiProperty({
+        description: 'Quiet hours start in HH:mm format',
+        nullable: true,
+        example: '22:00',
+    })
+    quietHoursStart!: string | null;
+
+    @ApiProperty({
+        description: 'Quiet hours end in HH:mm format',
+        nullable: true,
+        example: '07:00',
+    })
+    quietHoursEnd!: string | null;
+
+    @ApiProperty({
+        description: 'Digest frequency for notifications',
+        enum: DigestFrequency,
+        example: DigestFrequency.REALTIME,
+    })
+    digestFrequency!: DigestFrequency;
+
     /**
      * Factory method to convert a domain entity to a response DTO.
      * Ensures domain structure is never leaked directly to client.
@@ -40,6 +62,9 @@ export class UserPreferenceResponse {
         response.userId = entity.userId;
         response.optInChannels = entity.optInChannels;
         response.disabledEventTypes = entity.disabledEventTypes;
+        response.quietHoursStart = entity.quietHoursStart;
+        response.quietHoursEnd = entity.quietHoursEnd;
+        response.digestFrequency = entity.digestFrequency;
         return response;
     }
 }

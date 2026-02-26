@@ -30,6 +30,9 @@ export class PreferencesRepository implements IPreferencesRepository {
         } else {
             entity.optInChannels = persistenceData.optInChannels;
             entity.disabledEventTypes = persistenceData.disabledEventTypes;
+            entity.quietHoursStart = persistenceData.quietHoursStart;
+            entity.quietHoursEnd = persistenceData.quietHoursEnd;
+            entity.digestFrequency = persistenceData.digestFrequency;
         }
 
         const saved = await this.repo.save(entity);

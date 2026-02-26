@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { type ICountryRiskRepository } from '../../../../application/ICountryRiskRepository';
 import { CountryRisk } from '../../../../domain/entities/CountryRisk';
 import { CountryRiskEntity } from '../entities/CountryRiskEntity';
@@ -35,6 +35,29 @@ export class TypeOrmCountryRiskRepository implements ICountryRiskRepository {
             Number(entity.value),
             Number(entity.changePct),
             entity.timestamp,
+        );
+    }
+
+    public async findHistory(days: number): Promise<CountryRisk[]> {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - Math.max(days, 1));
+
+        const entities = await this.repository.find({
+            where: {
+                timestamp: MoreThanOrEqual(startDate),
+            },
+            order: {
+                timestamp: 'ASC',
+            },
+        });
+
+        return entities.map(
+            (entity) =>
+                new CountryRisk(
+                    Number(entity.value),
+                    Number(entity.changePct),
+                    entity.timestamp,
+                ),
         );
     }
 }

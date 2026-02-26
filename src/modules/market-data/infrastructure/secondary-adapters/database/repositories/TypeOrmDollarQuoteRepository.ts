@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { type IDollarQuoteRepository } from '../../../../application/IDollarQuoteRepository';
 import { DollarQuote } from '../../../../domain/entities/DollarQuote';
 import { DollarType } from '../../../../domain/enums/DollarType';
@@ -57,6 +57,32 @@ export class TypeOrmDollarQuoteRepository implements IDollarQuoteRepository {
                     Number(row.sellPrice),
                     new Date(row.timestamp),
                     row.source,
+                ),
+        );
+    }
+
+    public async findHistoryByType(type: DollarType, days: number): Promise<DollarQuote[]> {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - Math.max(days, 1));
+
+        const entities = await this.repository.find({
+            where: {
+                type,
+                timestamp: MoreThanOrEqual(startDate),
+            },
+            order: {
+                timestamp: 'ASC',
+            },
+        });
+
+        return entities.map(
+            (entity) =>
+                new DollarQuote(
+                    entity.type as DollarType,
+                    Number(entity.buyPrice),
+                    Number(entity.sellPrice),
+                    entity.timestamp,
+                    entity.source,
                 ),
         );
     }

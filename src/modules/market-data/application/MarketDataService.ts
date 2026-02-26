@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { type IAssetRepository, ASSET_REPOSITORY } from './IAssetRepository';
 import { type IDollarProvider, DOLLAR_PROVIDER } from './IDollarProvider';
@@ -12,7 +12,7 @@ import {
     type ICountryRiskRepository,
     COUNTRY_RISK_REPOSITORY,
 } from './ICountryRiskRepository';
-import { type IQuoteProvider, QUOTE_PROVIDER } from './IQuoteProvider';
+import { type IQuoteProvider, QUOTE_FALLBACK_PROVIDER, QUOTE_PROVIDER } from './IQuoteProvider';
 import { type IQuoteRepository, QUOTE_REPOSITORY } from './IQuoteRepository';
 import { EVENT_PUBLISHER, type IEventPublisher } from '../../ingestion/application/IEventPublisher';
 import { EventPayload } from '../../ingestion/domain/EventPayload';
@@ -22,8 +22,9 @@ import { CountryRisk } from '../domain/entities/CountryRisk';
 import { Asset } from '../domain/entities/Asset';
 import { MarketQuote } from '../domain/entities/MarketQuote';
 import { AssetType } from '../domain/enums/AssetType';
+import { DollarType } from '../domain/enums/DollarType';
 import { AssetNotFoundError } from '../domain/errors/AssetNotFoundError';
-import { RedisService } from '../../../shared/infrastructure/base/redis/redis.service';
+import { MARKET_CACHE, type IMarketCache } from './IMarketCache';
 
 @Injectable()
 export class MarketDataService {
@@ -36,7 +37,8 @@ export class MarketDataService {
 
     constructor(
         private readonly configService: ConfigService,
-        private readonly redisService: RedisService,
+        @Inject(MARKET_CACHE)
+        private readonly marketCache: IMarketCache,
         @Inject(ASSET_REPOSITORY)
         private readonly assetRepository: IAssetRepository,
         @Inject(DOLLAR_PROVIDER)
@@ -49,6 +51,9 @@ export class MarketDataService {
         private readonly countryRiskRepository: ICountryRiskRepository,
         @Inject(QUOTE_PROVIDER)
         private readonly quoteProvider: IQuoteProvider,
+        @Optional()
+        @Inject(QUOTE_FALLBACK_PROVIDER)
+        private readonly fallbackQuoteProvider: IQuoteProvider | null,
         @Inject(QUOTE_REPOSITORY)
         private readonly quoteRepository: IQuoteRepository,
         @Inject(EVENT_PUBLISHER)
@@ -93,6 +98,14 @@ export class MarketDataService {
 
             throw error;
         }
+    }
+
+    public async getDollarHistory(type: DollarType, days = 30): Promise<DollarQuote[]> {
+        return this.dollarQuoteRepository.findHistoryByType(type, days);
+    }
+
+    public async getCountryRiskHistory(days = 30): Promise<CountryRisk[]> {
+        return this.countryRiskRepository.findHistory(days);
     }
 
     public async getAssets(type?: AssetType): Promise<Asset[]> {
@@ -144,6 +157,63 @@ export class MarketDataService {
 
             throw error;
         }
+    }
+
+    public async getAssetStats(ticker: string, days = 30): Promise<{
+        ticker: string;
+        points: number;
+        minClose: number;
+        maxClose: number;
+        latestClose: number;
+        changePctFromPeriodStart: number;
+    }> {
+        const quotes = await this.getAssetQuotes(ticker, days);
+        const closes = quotes
+            .map((quote) => quote.closePrice)
+            .filter((value): value is number => typeof value === 'number');
+
+        if (closes.length === 0) {
+            return {
+                ticker,
+                points: 0,
+                minClose: 0,
+                maxClose: 0,
+                latestClose: 0,
+                changePctFromPeriodStart: 0,
+            };
+        }
+
+        const first = closes[0]!;
+        const latest = closes[closes.length - 1]!;
+        const changePct = first === 0 ? 0 : ((latest - first) / first) * 100;
+
+        return {
+            ticker,
+            points: closes.length,
+            minClose: Math.min(...closes),
+            maxClose: Math.max(...closes),
+            latestClose: latest,
+            changePctFromPeriodStart: changePct,
+        };
+    }
+
+    public async getRelatedAssets(ticker: string, limit = 5): Promise<Asset[]> {
+        const asset = await this.getAssetByTicker(ticker);
+        const sameType = await this.assetRepository.findAll(asset.assetType);
+
+        return sameType
+            .filter((item) => item.ticker !== asset.ticker)
+            .slice(0, Math.max(limit, 1));
+    }
+
+    public async getTopGainers(type: AssetType = AssetType.STOCK, limit = 5): Promise<Asset[]> {
+        const movers = await this.getTopMovers(type, limit);
+        return movers.gainers.map((item) => item.asset);
+    }
+
+    public async getTopLosers(type: AssetType = AssetType.STOCK, limit = 5): Promise<Asset[]> {
+        const movers = await this.getTopMovers(type, limit);
+        return movers.losers.map((item) => item.asset);
     }
 
     public async getMarketSummary(): Promise<{
@@ -212,7 +282,7 @@ export class MarketDataService {
         };
     }> {
         const cacheKey = 'market:status';
-        const cached = await this.redisService.get(cacheKey);
+        const cached = await this.marketCache.get(cacheKey);
         if (cached) {
             return JSON.parse(cached) as {
                 now: string;
@@ -234,7 +304,7 @@ export class MarketDataService {
 
         const [latestDollar, latestRisk, latestQuote] = await Promise.all([
             this.dollarQuoteRepository.findLatestTimestamp(),
-            this.countryRiskRepository.findLatest().then((risk) => risk?.timestamp ?? null),
+            this.countryRiskRepository.findLatest().then((risk: CountryRisk | null) => risk?.timestamp ?? null),
             this.quoteRepository.findLatestTimestamp(),
         ]);
 
@@ -255,7 +325,7 @@ export class MarketDataService {
             },
         };
 
-        await this.redisService.set(cacheKey, JSON.stringify(response), this.statusCacheTtlSeconds);
+        await this.marketCache.set(cacheKey, JSON.stringify(response), this.statusCacheTtlSeconds);
         return response;
     }
 
@@ -267,7 +337,7 @@ export class MarketDataService {
         losers: Array<{ asset: Asset; quote: MarketQuote }>;
     }> {
         const cacheKey = `market:top-movers:${assetType}:${limit}`;
-        const cached = await this.redisService.get(cacheKey);
+        const cached = await this.marketCache.get(cacheKey);
         if (cached) {
             return JSON.parse(cached) as {
                 gainers: Array<{ asset: Asset; quote: MarketQuote }>;
@@ -311,7 +381,7 @@ export class MarketDataService {
             losers: mapWithAsset(movers.losers),
         };
 
-        await this.redisService.set(cacheKey, JSON.stringify(response), this.topMoversCacheTtlSeconds);
+        await this.marketCache.set(cacheKey, JSON.stringify(response), this.topMoversCacheTtlSeconds);
         return response;
     }
 
@@ -382,6 +452,15 @@ export class MarketDataService {
                     const delay = this.quoteRetryBaseDelayMs * Math.pow(2, attempt - 1);
                     await this.sleep(delay);
                 }
+            }
+        }
+
+        if (this.fallbackQuoteProvider) {
+            try {
+                this.logger.warn(`Using fallback quote provider for ${yahooTicker}`);
+                return await this.fallbackQuoteProvider.fetchQuote(yahooTicker);
+            } catch (fallbackError) {
+                lastError = fallbackError as Error;
             }
         }
 
