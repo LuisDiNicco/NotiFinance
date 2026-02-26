@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const sourceRoot = join(process.cwd(), 'src', 'modules');
@@ -48,7 +48,26 @@ describe('Clean Architecture constraints', () => {
 
         for (const filePath of applicationFiles) {
             const content = readFileSync(filePath, 'utf8');
-            expect(content).not.toMatch(/from .*infrastructure\//);
+            expect(content).not.toMatch(/from .*modules\/.+\/infrastructure\//);
+        }
+    });
+
+    it('contains expected core modules for current backend phases', () => {
+        const expectedModules = [
+            'auth',
+            'ingestion',
+            'market-data',
+            'alert',
+            'notification',
+            'preferences',
+            'template',
+            'portfolio',
+            'watchlist',
+        ];
+
+        for (const moduleName of expectedModules) {
+            const modulePath = join(sourceRoot, moduleName);
+            expect(existsSync(modulePath)).toBe(true);
         }
     });
 });

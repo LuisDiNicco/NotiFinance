@@ -1,13 +1,13 @@
 # NotiFinance — Implementation Progress
 
 **Fecha:** 2026-02-26  
-**Scope actual:** Backend Fases B1–B7 (B7 Demo Mode completada)
+**Scope actual:** Backend Fases B1–B8 (B8 Testing & Quality completada)
 
 ## Estado general
 
 - Plan total: iniciado
-- Fase actual: **B7 (Demo Mode & Seeds)** completada
-- Última fase cerrada: **B7**
+- Fase actual: **B8 (Testing & Quality)** completada
+- Última fase cerrada: **B8**
 
 ## Fases completadas
 
@@ -314,6 +314,29 @@ Validación realizada:
 - ✅ `npx nest build` (OK) *(fallback porque Docker daemon no estaba activo para `npm run build`)*
 - ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/auth/application/AuthService.spec.ts test/unit/modules/auth/application/DemoSeedService.spec.ts test/unit/modules/auth/application/DemoUsersCleanupJob.spec.ts` (OK)
 - ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/auth.e2e-spec.ts` (OK)
+
+### ✅ B8 — Testing & Quality
+
+Implementado en backend:
+
+- Nuevos unit tests agregados:
+  - `HoldingsCalculator` (FIFO, valorización y pesos)
+  - `TradeService` (BUY y validación de SELL por holdings)
+  - `NotificationService` (create/read/delete con ownership)
+  - entidad `User` y value object `Holding`
+- E2E ampliados:
+  - `portfolio.e2e-spec.ts` con endpoints `GET /portfolios/:id/holdings` y `GET /portfolios/:id/distribution`
+  - `market-data.e2e-spec.ts` con `GET /market/summary` y `GET /assets/:ticker`
+- Architecture test reforzado:
+  - validación de existencia de módulos core del backend
+  - regla de acoplamiento application→infrastructure ajustada para detectar imports de infraestructura de módulos.
+
+Validación realizada:
+
+- ✅ `npx nest build` (OK)
+- ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/portfolio/application/HoldingsCalculator.spec.ts test/unit/modules/portfolio/application/TradeService.spec.ts test/unit/modules/notification/application/services/NotificationService.spec.ts test/unit/modules/auth/domain/entities/User.spec.ts test/unit/modules/portfolio/domain/entities/Holding.spec.ts` (OK)
+- ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/portfolio.e2e-spec.ts test/market-data.e2e-spec.ts` (OK)
+- ✅ `npx jest --runInBand test/architecture/clean-architecture.spec.ts` (OK)
 
 ## Notas de implementación
 

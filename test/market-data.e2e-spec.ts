@@ -116,6 +116,12 @@ describe('Market data endpoints (e2e)', () => {
         expect(response.body.value).toBe(680);
     });
 
+    it('/market/summary (GET)', async () => {
+        const response = await request(app.getHttpServer()).get('/market/summary').expect(200);
+        expect(response.body).toHaveProperty('dollar');
+        expect(response.body).toHaveProperty('risk');
+    });
+
     it('/market/status (GET)', async () => {
         const response = await request(app.getHttpServer()).get('/market/status').expect(200);
         expect(response.body).toHaveProperty('marketOpen');
@@ -132,6 +138,11 @@ describe('Market data endpoints (e2e)', () => {
     it('/assets (GET)', async () => {
         const response = await request(app.getHttpServer()).get('/assets?type=STOCK&limit=1').expect(200);
         expect(response.body).toHaveLength(1);
+    });
+
+    it('/assets/:ticker (GET)', async () => {
+        const response = await request(app.getHttpServer()).get('/assets/GGAL').expect(200);
+        expect(response.body.ticker).toBe('GGAL');
     });
 
     it('/search (GET)', async () => {

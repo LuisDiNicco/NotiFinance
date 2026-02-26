@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../src/modules/auth/infrastructure/primary-adapter
 import { Portfolio } from '../src/modules/portfolio/domain/entities/Portfolio';
 import { Trade } from '../src/modules/portfolio/domain/entities/Trade';
 import { TradeType } from '../src/modules/portfolio/domain/enums/TradeType';
+import { Holding } from '../src/modules/portfolio/domain/entities/Holding';
 
 describe('Portfolio endpoints (e2e)', () => {
     let app: INestApplication;
@@ -30,6 +31,23 @@ describe('Portfolio endpoints (e2e)', () => {
         getUserPortfolios: jest.fn().mockResolvedValue([portfolio]),
         getPortfolioDetail: jest.fn().mockResolvedValue(portfolio),
         deletePortfolio: jest.fn().mockResolvedValue(undefined),
+        getPortfolioHoldings: jest.fn().mockResolvedValue([
+            new Holding({
+                assetId: 'asset-1',
+                ticker: 'GGAL',
+                quantity: 10,
+                avgCostBasis: 1000,
+                currentPrice: 1050,
+                marketValue: 10500,
+                costBasis: 10000,
+                unrealizedPnl: 500,
+                unrealizedPnlPct: 5,
+                weight: 100,
+            }),
+        ]),
+        getPortfolioDistribution: jest.fn().mockResolvedValue([
+            { ticker: 'GGAL', weight: 100 },
+        ]),
     };
 
     const tradeServiceMock = {
@@ -103,5 +121,23 @@ describe('Portfolio endpoints (e2e)', () => {
             .expect(201);
 
         expect(response.body.id).toBe(trade.id);
+    });
+
+    it('/portfolios/:id/holdings (GET)', async () => {
+        const response = await request(app.getHttpServer())
+            .get(`/portfolios/${portfolio.id}/holdings`)
+            .expect(200);
+
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].ticker).toBe('GGAL');
+    });
+
+    it('/portfolios/:id/distribution (GET)', async () => {
+        const response = await request(app.getHttpServer())
+            .get(`/portfolios/${portfolio.id}/distribution`)
+            .expect(200);
+
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].weight).toBe(100);
     });
 });
