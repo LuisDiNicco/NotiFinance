@@ -25,9 +25,9 @@ export class RabbitMQEventPublisher implements IEventPublisher {
                 }
             };
 
-            await firstValueFrom(this.rabbitClient.emit(`notification.${event.eventType}`, message));
+            await firstValueFrom(this.rabbitClient.emit(event.eventType, message));
 
-            this.logger.debug(`Successfully emitted event to RabbitMQ Exchange: notification.${event.eventType}`);
+            this.logger.debug(`Successfully emitted event to RabbitMQ Exchange: ${event.eventType}`);
         } catch (error) {
             this.logger.error(`Failed to publish event ${event.eventId} to RabbitMQ`, error);
             throw new Error(`Failed to publish event (RabbitMQ Publisher): ${(error as Error).message}`);

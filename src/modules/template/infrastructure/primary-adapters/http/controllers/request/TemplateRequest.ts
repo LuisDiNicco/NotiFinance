@@ -5,7 +5,7 @@ import { NotificationTemplate } from '../../../../../domain/entities/Notificatio
 export class TemplateRequest {
     @ApiProperty({
         description: 'Human-readable template name',
-        example: 'Payment Success Email',
+        example: 'Price Alert Email',
     })
     @IsString()
     @MinLength(2)
@@ -13,7 +13,7 @@ export class TemplateRequest {
 
     @ApiProperty({
         description: 'Event type associated with this template',
-        example: 'payment.success',
+        example: 'alert.price.above',
     })
     @IsString()
     @MinLength(2)
@@ -21,7 +21,7 @@ export class TemplateRequest {
 
     @ApiProperty({
         description: 'Subject template supporting placeholders like {{amount}}',
-        example: 'Payment of {{amount}} confirmed',
+        example: 'GGAL superó {{threshold}}',
     })
     @IsString()
     @MinLength(5)
@@ -29,7 +29,7 @@ export class TemplateRequest {
 
     @ApiProperty({
         description: 'Body template supporting placeholders like {{reference}}',
-        example: 'Reference {{reference}} was processed successfully.',
+        example: 'Precio actual {{currentValue}} con umbral {{threshold}}.',
     })
     @IsString()
     @MinLength(5)

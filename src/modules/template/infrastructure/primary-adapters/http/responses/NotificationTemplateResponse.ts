@@ -10,25 +10,25 @@ export class NotificationTemplateResponse {
 
     @ApiProperty({
         description: 'Human-readable name for the template',
-        example: 'Payment Success Email',
+        example: 'Price Alert Email',
     })
     name!: string;
 
     @ApiProperty({
         description: 'Event type this template is associated with',
-        example: 'payment.success',
+        example: 'alert.price.above',
     })
     eventType!: string;
 
     @ApiProperty({
         description: 'Template for the subject line (supports {{key}} placeholders)',
-        example: 'Payment of {{amount}} confirmed',
+        example: 'GGAL superó {{threshold}}',
     })
     subjectTemplate!: string;
 
     @ApiProperty({
         description: 'Template for the message body (supports {{key}} placeholders)',
-        example: 'Thank you for your payment of {{amount}}. Reference: {{id}}',
+        example: 'Precio actual {{currentValue}} con umbral {{threshold}}',
     })
     bodyTemplate!: string;
 

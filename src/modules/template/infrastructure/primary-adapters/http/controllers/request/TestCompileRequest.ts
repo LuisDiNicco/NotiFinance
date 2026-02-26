@@ -4,7 +4,7 @@ import { IsObject, IsString, MinLength } from 'class-validator';
 export class TestCompileRequest {
     @ApiProperty({
         description: 'Event type whose template should be compiled',
-        example: 'payment.success',
+        example: 'alert.price.above',
     })
     @IsString()
     @MinLength(2)

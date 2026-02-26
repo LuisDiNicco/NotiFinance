@@ -24,7 +24,7 @@ export class PreferencesRequest {
     @ApiProperty({
         description: 'Event types disabled for this user',
         isArray: true,
-        example: ['security.login_alert'],
+        example: ['alert.risk.above'],
     })
     @IsArray()
     @IsString({ each: true })

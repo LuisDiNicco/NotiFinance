@@ -14,7 +14,7 @@ export class EventPayloadRequest {
     @ApiProperty({
         description: 'Domain event type to process',
         enum: EventType,
-        example: EventType.PAYMENT_SUCCESS,
+        example: EventType.MARKET_QUOTE_UPDATED,
     })
     @IsEnum(EventType, { message: 'Invalid eventType provided' })
     eventType!: EventType;

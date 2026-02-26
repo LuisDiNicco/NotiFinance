@@ -30,7 +30,7 @@ describe('EventIngestionService', () => {
     });
 
     it('publishes incoming event with correlation id', async () => {
-        const event = new EventPayload('ev-100', EventType.PAYMENT_SUCCESS, 'user-1', {
+        const event = new EventPayload('ev-100', EventType.MARKET_QUOTE_UPDATED, 'user-1', {
             amount: 100,
         });
 
@@ -40,7 +40,7 @@ describe('EventIngestionService', () => {
     });
 
     it('propagates publisher errors', async () => {
-        const event = new EventPayload('ev-101', EventType.PAYMENT_SUCCESS, 'user-1', {});
+        const event = new EventPayload('ev-101', EventType.MARKET_QUOTE_UPDATED, 'user-1', {});
         publisher.publishEvent.mockRejectedValue(new Error('broker unavailable'));
 
         await expect(service.processEvent(event, 'corr-101')).rejects.toThrow(

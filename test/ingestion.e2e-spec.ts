@@ -55,9 +55,9 @@ describe('IngestionController (e2e)', () => {
             .set('x-correlation-id', 'test-corr-id')
             .send({
                 eventId: '550e8400-e29b-41d4-a716-446655440000',
-                eventType: 'payment.success',
+                eventType: 'market.quote.updated',
                 recipientId: 'user-123',
-                metadata: { amount: 100 }
+                metadata: { assetId: 'asset-1', closePrice: 8025.5 }
             })
             .expect(202);
     });
@@ -69,9 +69,9 @@ describe('IngestionController (e2e)', () => {
             .post('/events')
             .send({
                 eventId: '550e8400-e29b-41d4-a716-446655440000',
-                eventType: 'payment.success',
+                eventType: 'market.quote.updated',
                 recipientId: 'user-123',
-                metadata: { amount: 100 }
+                metadata: { assetId: 'asset-1', closePrice: 8025.5 }
             })
             .expect(200)
             .expect((res) => {

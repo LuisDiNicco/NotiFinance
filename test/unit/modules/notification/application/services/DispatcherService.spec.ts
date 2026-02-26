@@ -60,7 +60,7 @@ describe('DispatcherService', () => {
     });
 
     it('should discard event if user preference is not found', async () => {
-        const event = new EventPayload('ev-1', EventType.PAYMENT_SUCCESS, 'user-1', {});
+        const event = new EventPayload('ev-1', EventType.ALERT_PRICE_ABOVE, 'user-1', {});
         preferencesService.getPreferences.mockRejectedValue(new PreferencesNotFoundError('user-1'));
 
         await dispatcher.dispatchEvent(event, 'corr-id-1');
@@ -71,7 +71,7 @@ describe('DispatcherService', () => {
     });
 
     it('should compile template and dispatch to allowed channels', async () => {
-        const event = new EventPayload('ev-2', EventType.PAYMENT_SUCCESS, 'user-2', { amount: 100 });
+        const event = new EventPayload('ev-2', EventType.ALERT_PRICE_ABOVE, 'user-2', { amount: 100 });
         const prefs = new UserPreference('user-2', [NotificationChannel.EMAIL], []);
 
         preferencesService.getPreferences.mockResolvedValue(prefs);
@@ -82,15 +82,15 @@ describe('DispatcherService', () => {
 
         await dispatcher.dispatchEvent(event, 'corr-id-2');
 
-        expect(templateService.compileTemplate).toHaveBeenCalledWith(EventType.PAYMENT_SUCCESS, { amount: 100 });
+        expect(templateService.compileTemplate).toHaveBeenCalledWith(EventType.ALERT_PRICE_ABOVE, { amount: 100 });
         expect(mockEmailChannel.send).toHaveBeenCalledWith('user-2', 'Payment Successful', 'You paid 100', 'corr-id-2');
     });
 
     it('should not dispatch to channels disabled by user preferences', async () => {
-        const event = new EventPayload('ev-3', EventType.SECURITY_LOGIN_ALERT, 'user-3', {});
+        const event = new EventPayload('ev-3', EventType.ALERT_RISK_ABOVE, 'user-3', {});
 
-        // User optics INTO Email, but strictly DISABLES SECURITY_LOGIN_ALERT events globally
-        const prefs = new UserPreference('user-3', [NotificationChannel.EMAIL], [EventType.SECURITY_LOGIN_ALERT]);
+        // User optics INTO Email, but strictly DISABLES ALERT_RISK_ABOVE events globally
+        const prefs = new UserPreference('user-3', [NotificationChannel.EMAIL], [EventType.ALERT_RISK_ABOVE]);
 
         preferencesService.getPreferences.mockResolvedValue(prefs);
         templateService.compileTemplate.mockResolvedValue({ subject: 'Alert', body: '...' });

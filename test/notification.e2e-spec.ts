@@ -14,7 +14,7 @@ describe('Notification endpoints (e2e)', () => {
         alertId: '11111111-1111-4111-8111-111111111111',
         title: 'GGAL reached threshold',
         body: 'GGAL crossed your alert threshold',
-        type: 'alert.triggered',
+        type: 'alert.price.above',
         metadata: { ticker: 'GGAL' },
         isRead: false,
     });

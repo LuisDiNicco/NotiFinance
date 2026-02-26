@@ -33,8 +33,8 @@ export class TemplateController {
         description: 'Template compiled successfully',
         schema: {
             properties: {
-                subject: { type: 'string', example: 'Payment Successful' },
-                body: { type: 'string', example: 'Thank you for your payment' },
+                subject: { type: 'string', example: 'GGAL superó el umbral' },
+                body: { type: 'string', example: 'Precio actual 8100 por encima de 8000' },
             },
         },
     })

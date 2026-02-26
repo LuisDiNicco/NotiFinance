@@ -26,7 +26,7 @@ export class UserPreferenceResponse {
     @ApiProperty({
         description: 'Event types the user has disabled globally',
         isArray: true,
-        example: ['security.login_alert'],
+        example: ['alert.risk.above'],
     })
     disabledEventTypes!: string[];
 

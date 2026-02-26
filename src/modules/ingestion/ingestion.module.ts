@@ -17,14 +17,17 @@ import { RabbitMqTopologyService } from './infrastructure/secondary-adapters/mes
                     transport: Transport.RMQ,
                     options: {
                         urls: [configService.get<string>('integrations.rabbitmq.url') as string],
-                        queue: 'notification_events',
+                        queue: 'notification-events-queue',
                         queueOptions: {
                             durable: true,
                             arguments: {
                                 'x-dead-letter-exchange': '',
-                                'x-dead-letter-routing-key': 'notification_events.dlq',
+                                'x-dead-letter-routing-key': 'notification-events-queue.dlq',
                             },
                         },
+                        exchange: 'notifinance.events',
+                        exchangeType: 'topic',
+                        wildcards: true,
                     },
                 }),
                 inject: [ConfigService],

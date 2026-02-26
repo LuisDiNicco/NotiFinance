@@ -16,7 +16,7 @@ export class EventConsumer {
 
     constructor(private readonly dispatcherService: DispatcherService) { }
 
-    @EventPattern('notification.*')
+    @EventPattern('alert.#')
     async handleIncomingEvent(
         @Payload() message: RabbitMQMessage,
         @Ctx() context: RmqContext,

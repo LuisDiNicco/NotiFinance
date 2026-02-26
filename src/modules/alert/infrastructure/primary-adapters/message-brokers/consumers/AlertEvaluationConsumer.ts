@@ -5,6 +5,8 @@ import { AlertEvaluationEngine } from '../../../../application/AlertEvaluationEn
 import { EVENT_PUBLISHER, type IEventPublisher } from '../../../../../ingestion/application/IEventPublisher';
 import { EventPayload } from '../../../../../ingestion/domain/EventPayload';
 import { EventType } from '../../../../../ingestion/domain/enums/EventType';
+import { AlertCondition } from '../../../../domain/enums/AlertCondition';
+import { AlertType } from '../../../../domain/enums/AlertType';
 
 interface RabbitMQMessage {
     payload: EventPayload;
@@ -23,7 +25,7 @@ export class AlertEvaluationConsumer {
         private readonly eventPublisher: IEventPublisher,
     ) { }
 
-    @EventPattern('notification.market.quote.updated')
+    @EventPattern('market.quote.updated')
     public async onQuoteUpdated(
         @Payload() message: RabbitMQMessage,
         @Ctx() context: RmqContext,
@@ -31,7 +33,7 @@ export class AlertEvaluationConsumer {
         await this.evaluateAndPublish('QUOTE', message, context);
     }
 
-    @EventPattern('notification.market.dollar.updated')
+    @EventPattern('market.dollar.updated')
     public async onDollarUpdated(
         @Payload() message: RabbitMQMessage,
         @Ctx() context: RmqContext,
@@ -39,7 +41,7 @@ export class AlertEvaluationConsumer {
         await this.evaluateAndPublish('DOLLAR', message, context);
     }
 
-    @EventPattern('notification.market.risk.updated')
+    @EventPattern('market.risk.updated')
     public async onRiskUpdated(
         @Payload() message: RabbitMQMessage,
         @Ctx() context: RmqContext,
@@ -87,9 +89,22 @@ export class AlertEvaluationConsumer {
             }
 
             for (const alert of triggered) {
+                const alertEventType = this.resolveAlertEventType(alert.alertType, alert.condition);
+                if (!alertEventType) {
+                    this.logger.warn(`[Trace: ${correlationId}] Unsupported alert mapping for type=${alert.alertType} condition=${alert.condition}`);
+                    continue;
+                }
+
+                const currentValue =
+                    source === 'QUOTE'
+                        ? metadata['closePrice']
+                        : source === 'DOLLAR'
+                            ? metadata['currentPrice']
+                            : metadata['value'];
+
                 const event = new EventPayload(
                     randomUUID(),
-                    EventType.ALERT_TRIGGERED,
+                    alertEventType,
                     alert.userId,
                     {
                         alertId: alert.id,
@@ -98,6 +113,7 @@ export class AlertEvaluationConsumer {
                         alertType: alert.alertType,
                         condition: alert.condition,
                         threshold: alert.threshold,
+                        currentValue,
                         source,
                         sourceMetadata: metadata,
                     },
@@ -111,5 +127,49 @@ export class AlertEvaluationConsumer {
             this.logger.error(`[Trace: ${correlationId}] Alert evaluation failed`, error);
             channel.ack(originalMsg);
         }
+    }
+
+    private resolveAlertEventType(alertType: AlertType, condition: AlertCondition): EventType | null {
+        if (alertType === AlertType.PRICE) {
+            if (condition === AlertCondition.BELOW) {
+                return EventType.ALERT_PRICE_BELOW;
+            }
+
+            if (condition === AlertCondition.PCT_UP) {
+                return EventType.ALERT_PCT_UP;
+            }
+
+            if (condition === AlertCondition.PCT_DOWN) {
+                return EventType.ALERT_PCT_DOWN;
+            }
+
+            return EventType.ALERT_PRICE_ABOVE;
+        }
+
+        if (alertType === AlertType.DOLLAR) {
+            if (condition === AlertCondition.BELOW) {
+                return EventType.ALERT_DOLLAR_BELOW;
+            }
+
+            return EventType.ALERT_DOLLAR_ABOVE;
+        }
+
+        if (alertType === AlertType.RISK) {
+            if (condition === AlertCondition.BELOW) {
+                return EventType.ALERT_RISK_BELOW;
+            }
+
+            return EventType.ALERT_RISK_ABOVE;
+        }
+
+        if (condition === AlertCondition.PCT_UP) {
+            return EventType.ALERT_PCT_UP;
+        }
+
+        if (condition === AlertCondition.PCT_DOWN) {
+            return EventType.ALERT_PCT_DOWN;
+        }
+
+        return null;
     }
 }

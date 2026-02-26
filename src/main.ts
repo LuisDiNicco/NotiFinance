@@ -51,22 +51,46 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  // Connect RabbitMQ Microservice for Consumers
+  // Connect RabbitMQ Microservices for Consumers
   const rmqUrl = configService.get<string>('integrations.rabbitmq.url');
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
       urls: [rmqUrl as string],
-      queue: 'notification_events',
+      queue: 'alert-evaluation-queue',
+      noAck: false,
+      queueOptions: {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': '',
+          'x-dead-letter-routing-key': 'alert-evaluation-queue.dlq',
+        },
+      },
+      exchange: 'notifinance.events',
+      exchangeType: 'topic',
+      routingKey: 'market.#',
+      wildcards: true,
+    },
+  });
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rmqUrl as string],
+      queue: 'notification-events-queue',
       noAck: false, // Strict Acking required
       queueOptions: {
         durable: true,
         arguments: {
           'x-dead-letter-exchange': '',
-          'x-dead-letter-routing-key': 'notification_events.dlq',
+          'x-dead-letter-routing-key': 'notification-events-queue.dlq',
         },
       },
+      exchange: 'notifinance.events',
+      exchangeType: 'topic',
+      routingKey: 'alert.#',
+      wildcards: true,
     },
   });
 
@@ -76,7 +100,8 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`Application is running on http://localhost:${port}`);
   logger.log(`API Documentation available at http://localhost:${port}/api`);
-  logger.log(`RabbitMQ Microservice connected and polling from 'notification_events'`);
+  logger.log(`RabbitMQ Microservice connected and polling from 'alert-evaluation-queue'`);
+  logger.log(`RabbitMQ Microservice connected and polling from 'notification-events-queue'`);
 }
 bootstrap();
 

@@ -53,7 +53,7 @@ describe('PreferencesService', () => {
         const savedPreference = new UserPreference(
             'user-2',
             [NotificationChannel.EMAIL, NotificationChannel.IN_APP],
-            ['security.login_alert'],
+            ['alert.risk.above'],
         );
 
         repository.save.mockResolvedValue(savedPreference);
@@ -61,14 +61,14 @@ describe('PreferencesService', () => {
         const result = await service.createOrUpdatePreferences(
             'user-2',
             [NotificationChannel.EMAIL, NotificationChannel.IN_APP],
-            ['security.login_alert'],
+            ['alert.risk.above'],
         );
 
         expect(repository.save).toHaveBeenCalledWith(
             expect.objectContaining({
                 userId: 'user-2',
                 optInChannels: [NotificationChannel.EMAIL, NotificationChannel.IN_APP],
-                disabledEventTypes: ['security.login_alert'],
+                disabledEventTypes: ['alert.risk.above'],
             }),
         );
         expect(result).toBe(savedPreference);

@@ -10,7 +10,7 @@ describe('UserPreference', () => {
         );
 
         expect(
-            preference.canReceiveEventVia('payment.success', NotificationChannel.EMAIL),
+            preference.canReceiveEventVia('alert.price.above', NotificationChannel.EMAIL),
         ).toBe(true);
     });
 
@@ -18,11 +18,11 @@ describe('UserPreference', () => {
         const preference = new UserPreference(
             'user-1',
             [NotificationChannel.EMAIL],
-            ['security.login_alert'],
+            ['alert.risk.above'],
         );
 
         expect(
-            preference.canReceiveEventVia('security.login_alert', NotificationChannel.EMAIL),
+            preference.canReceiveEventVia('alert.risk.above', NotificationChannel.EMAIL),
         ).toBe(false);
     });
 
@@ -30,7 +30,7 @@ describe('UserPreference', () => {
         const preference = new UserPreference('user-1', [NotificationChannel.IN_APP], []);
 
         expect(
-            preference.canReceiveEventVia('payment.success', NotificationChannel.EMAIL),
+            preference.canReceiveEventVia('alert.price.above', NotificationChannel.EMAIL),
         ).toBe(false);
     });
 });

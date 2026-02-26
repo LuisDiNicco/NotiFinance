@@ -7,9 +7,9 @@ import { TEMPLATE_REPO } from '../src/modules/template/application/ITemplateRepo
 import { NotificationTemplate } from '../src/modules/template/domain/entities/NotificationTemplate';
 
 const templateEntity = new NotificationTemplate(
-  'Payment Template',
-  'payment.success',
-  'Payment {{amount}}',
+  'Price Alert Template',
+  'alert.price.above',
+  'Price {{amount}}',
   'Body {{reference}}',
 );
 templateEntity.id = 'tpl-1';
@@ -75,9 +75,9 @@ describe('Templates endpoint (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/templates')
       .send({
-        name: 'Payment Template',
-        eventType: 'payment.success',
-        subjectTemplate: 'Payment {{amount}}',
+        name: 'Price Alert Template',
+        eventType: 'alert.price.above',
+        subjectTemplate: 'Price {{amount}}',
         bodyTemplate: 'Body {{reference}}',
       })
       .expect(201);
@@ -89,7 +89,7 @@ describe('Templates endpoint (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/templates/test-compile')
       .send({
-        eventType: 'payment.success',
+        eventType: 'alert.price.above',
         context: {
           amount: 100,
           reference: 'TX-01',
@@ -98,7 +98,7 @@ describe('Templates endpoint (e2e)', () => {
       .expect(200);
 
     expect(response.body).toEqual({
-      subject: 'Payment 100',
+      subject: 'Price 100',
       body: 'Body TX-01',
     });
   });

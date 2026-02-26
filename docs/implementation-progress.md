@@ -1,13 +1,13 @@
 # NotiFinance — Implementation Progress
 
 **Fecha:** 2026-02-26  
-**Scope actual:** Backend Fases B1–B5 (B5 hardening portfolio en cierre)
+**Scope actual:** Backend Fases B1–B6 (B6 migration & integration completada)
 
 ## Estado general
 
 - Plan total: iniciado
-- Fase actual: **B5 (Portfolio & Watchlist)** en cierre
-- Última fase cerrada: **B4**
+- Fase actual: **B6 (EventType Migration & Integration)** completada
+- Última fase cerrada: **B6**
 
 ## Fases completadas
 
@@ -262,6 +262,33 @@ Validación realizada:
 - ✅ `npm run build` (OK)
 - ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/portfolio/application/PortfolioService.spec.ts` (OK)
 - ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/portfolio.e2e-spec.ts` (OK)
+
+### ✅ B6 — EventType Migration & Integration
+
+Implementado en backend:
+
+- Migración de tipos de evento:
+  - removidos tipos legacy (`payment.success`, `security.login_alert`, etc.)
+  - agregados tipos financieros `market.*` y `alert.*` específicos (price/dollar/risk/pct)
+- RabbitMQ topology actualizada:
+  - exchange topic `notifinance.events`
+  - colas dedicadas `alert-evaluation-queue` y `notification-events-queue`
+  - bindings `market.*`/`market.#` y `alert.*`/`alert.#`
+  - DLQ por cola
+- Integración de consumidores/publicador:
+  - market events entran por `market.*`
+  - alert events se publican en tipos `alert.*` específicos según condición
+- Seeds financieras de templates:
+  - nueva migración `1760000000008-SeedFinancialNotificationTemplates.ts`
+  - upsert para templates de `alert.price.*`, `alert.dollar.*`, `alert.risk.*`, `alert.pct.*`
+- Test de integración de flujo agregado:
+  - `test/event-flow.e2e-spec.ts` valida chain market→alert→notification.
+
+Validación realizada:
+
+- ✅ `npm run build` (OK)
+- ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/ingestion/application/EventIngestionService.spec.ts test/unit/modules/notification/application/services/DispatcherService.spec.ts test/unit/modules/preferences/application/PreferencesService.spec.ts test/unit/modules/preferences/domain/entities/UserPreference.spec.ts` (OK)
+- ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/ingestion.e2e-spec.ts test/event-flow.e2e-spec.ts test/app.e2e-spec.ts test/notification.e2e-spec.ts` (OK)
 
 ## Notas de implementación
 

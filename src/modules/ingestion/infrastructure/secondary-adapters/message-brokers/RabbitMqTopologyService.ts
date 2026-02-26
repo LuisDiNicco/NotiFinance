@@ -23,8 +23,33 @@ export class RabbitMqTopologyService implements OnModuleInit, OnModuleDestroy {
         this.connection = connection;
         this.channel = channel;
 
-        await channel.assertQueue('notification_events.dlq', { durable: true });
-        this.logger.log('RabbitMQ DLQ topology declared: notification_events.dlq');
+        await channel.assertExchange('notifinance.events', 'topic', { durable: true });
+
+        await channel.assertQueue('alert-evaluation-queue.dlq', { durable: true });
+        await channel.assertQueue('notification-events-queue.dlq', { durable: true });
+
+        await channel.assertQueue('alert-evaluation-queue', {
+            durable: true,
+            arguments: {
+                'x-dead-letter-exchange': '',
+                'x-dead-letter-routing-key': 'alert-evaluation-queue.dlq',
+            },
+        });
+
+        await channel.assertQueue('notification-events-queue', {
+            durable: true,
+            arguments: {
+                'x-dead-letter-exchange': '',
+                'x-dead-letter-routing-key': 'notification-events-queue.dlq',
+            },
+        });
+
+        await channel.bindQueue('alert-evaluation-queue', 'notifinance.events', 'market.*');
+        await channel.bindQueue('alert-evaluation-queue', 'notifinance.events', 'market.#');
+        await channel.bindQueue('notification-events-queue', 'notifinance.events', 'alert.*');
+        await channel.bindQueue('notification-events-queue', 'notifinance.events', 'alert.#');
+
+        this.logger.log('RabbitMQ topology declared: notifinance.events + alert/notification queues with DLQ');
     }
 
     async onModuleDestroy(): Promise<void> {
