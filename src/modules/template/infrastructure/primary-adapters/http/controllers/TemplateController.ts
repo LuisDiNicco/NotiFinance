@@ -7,7 +7,7 @@ import { TestCompileRequest } from './request/TestCompileRequest';
 import { TemplateListQueryRequest } from './request/TemplateListQueryRequest';
 import { PaginatedTemplateResponse } from '../responses/PaginatedTemplateResponse';
 
-@ApiTags('templates')
+@ApiTags('Templates')
 @Controller('templates')
 export class TemplateController {
     constructor(private readonly templateService: TemplateCompilerService) { }

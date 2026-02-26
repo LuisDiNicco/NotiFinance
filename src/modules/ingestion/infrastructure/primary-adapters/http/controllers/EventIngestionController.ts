@@ -5,7 +5,7 @@ import { EventPayloadRequest } from './request/EventPayloadRequest';
 import { EventIngestionService } from '../../../../application/EventIngestionService';
 import { IdempotencyInterceptor } from '../interceptors/IdempotencyInterceptor';
 
-@ApiTags('events')
+@ApiTags('Events')
 @Controller('events')
 export class EventIngestionController {
     private readonly logger = new Logger(EventIngestionController.name);

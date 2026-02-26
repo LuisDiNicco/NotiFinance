@@ -4,7 +4,7 @@ import { PreferencesService } from '../../../../application/PreferencesService';
 import { PreferencesRequest } from './request/PreferencesRequest';
 import { UserPreferenceResponse } from '../responses/UserPreferenceResponse';
 
-@ApiTags('preferences')
+@ApiTags('Preferences')
 @Controller('preferences')
 export class PreferencesController {
     constructor(private readonly preferencesService: PreferencesService) { }

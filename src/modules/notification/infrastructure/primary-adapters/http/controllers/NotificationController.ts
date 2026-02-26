@@ -20,7 +20,7 @@ interface AuthenticatedRequest extends Request {
     };
 }
 
-@ApiTags('notifications')
+@ApiTags('Notifications')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')

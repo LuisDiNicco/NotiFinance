@@ -1,13 +1,13 @@
 # NotiFinance — Implementation Progress
 
 **Fecha:** 2026-02-26  
-**Scope actual:** Backend Fases B1–B8 (B8 Testing & Quality completada)
+**Scope actual:** Backend Fases B1–B9 (B9 Documentation & Polish completada)
 
 ## Estado general
 
 - Plan total: iniciado
-- Fase actual: **B8 (Testing & Quality)** completada
-- Última fase cerrada: **B8**
+- Fase actual: **B9 (Documentation & Polish)** completada
+- Última fase cerrada: **B9**
 
 ## Fases completadas
 
@@ -336,6 +336,26 @@ Validación realizada:
 - ✅ `npx nest build` (OK)
 - ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/portfolio/application/HoldingsCalculator.spec.ts test/unit/modules/portfolio/application/TradeService.spec.ts test/unit/modules/notification/application/services/NotificationService.spec.ts test/unit/modules/auth/domain/entities/User.spec.ts test/unit/modules/portfolio/domain/entities/Holding.spec.ts` (OK)
 - ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/portfolio.e2e-spec.ts test/market-data.e2e-spec.ts` (OK)
+- ✅ `npx jest --runInBand test/architecture/clean-architecture.spec.ts` (OK)
+
+### ✅ B9 — Documentation & Polish
+
+Implementado en backend:
+
+- Swagger polish:
+  - normalización de `@ApiTags` a formato consistente por dominio (`Auth`, `Market`, `Assets`, `Watchlist`, `Portfolio`, `Alerts`, `Notifications`, etc.)
+- README renovado:
+  - renombrado y enfocado en NotiFinance
+  - quick start actualizado
+  - resumen de endpoints disponibles
+  - referencia de variables de entorno
+  - comandos de testing y enlaces de arquitectura/progreso
+- `.env.example` actualizado:
+  - unificado con variables efectivamente validadas y consumidas por configuración (`DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, auth y market tunables).
+
+Validación realizada:
+
+- ✅ `npx nest build` (OK)
 - ✅ `npx jest --runInBand test/architecture/clean-architecture.spec.ts` (OK)
 
 ## Notas de implementación

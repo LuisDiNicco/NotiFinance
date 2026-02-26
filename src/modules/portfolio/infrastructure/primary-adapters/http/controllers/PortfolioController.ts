@@ -16,7 +16,7 @@ interface AuthenticatedRequest extends Request {
     };
 }
 
-@ApiTags('portfolios')
+@ApiTags('Portfolio')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('portfolios')

@@ -25,7 +25,7 @@ interface AuthenticatedRequest extends Request {
     };
 }
 
-@ApiTags('alerts')
+@ApiTags('Alerts')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('alerts')

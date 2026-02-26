@@ -12,7 +12,7 @@ interface AuthenticatedRequest extends Request {
     };
 }
 
-@ApiTags('watchlist')
+@ApiTags('Watchlist')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('watchlist')
