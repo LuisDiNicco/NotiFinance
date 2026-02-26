@@ -29,7 +29,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
         const isNew = await this.redisService.setNx(cacheKey, 'PROCESSING', this.TTL_SECONDS);
 
         if (!isNew) {
-            this.logger.log(`Duplicate event detected via idempotency key: ${eventId}. Skiping processing.`);
+            this.logger.log(`Duplicate event detected via idempotency key: ${eventId}. Skipping processing.`);
             // Return 200 OK immediately for duplicate webhook
             const response = context.switchToHttp().getResponse();
             response.status(200);

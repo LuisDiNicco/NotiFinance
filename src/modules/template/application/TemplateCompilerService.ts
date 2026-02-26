@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ITemplateRepository } from './ITemplateRepository';
 import { TEMPLATE_REPO } from './ITemplateRepository';
+import { PaginatedRequest, PaginatedResponse } from './ITemplateRepository';
 import { NotificationTemplate } from '../domain/entities/NotificationTemplate';
 import { TemplateNotFoundError } from '../domain/errors/TemplateNotFoundError';
 
@@ -30,6 +31,10 @@ export class TemplateCompilerService {
 
     public async saveTemplate(template: NotificationTemplate): Promise<NotificationTemplate> {
         return this.repo.save(template);
+    }
+
+    public async listTemplates(request: PaginatedRequest): Promise<PaginatedResponse<NotificationTemplate>> {
+        return this.repo.findPaginated(request);
     }
 
     private render(tpl: string, data: Record<string, unknown>): string {

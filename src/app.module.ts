@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { validate } from './shared/infrastructure/base/config/env.validation';
 import { LoggerConfigModule } from './shared/infrastructure/base/logger/LoggerConfigModule';
 import { getDatabaseConfig } from './shared/infrastructure/base/config/database.config';
@@ -9,14 +12,27 @@ import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { TemplateModule } from './modules/template/template.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { HealthModule } from './shared/infrastructure/primary-adapters/http/health/health.module';
+import appConfig from './shared/infrastructure/base/config/app.config';
+import integrationsConfig from './shared/infrastructure/base/config/integrations.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       validate,
       isGlobal: true,
+      load: [appConfig, integrationsConfig],
     }),
     LoggerConfigModule,
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          ttl: configService.get<number>('app.throttle.ttl', 60),
+          limit: configService.get<number>('app.throttle.limit', 30),
+        },
+      ],
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -27,8 +43,14 @@ import { NotificationModule } from './modules/notification/notification.module';
     PreferencesModule,
     TemplateModule,
     NotificationModule,
+    HealthModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule { }

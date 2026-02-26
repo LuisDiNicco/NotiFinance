@@ -40,7 +40,7 @@ export class EventConsumer {
                 this.logger.warn(`[Trace: ${correlationId}] Dropping message permanently due to Business Error: ${error.message}`);
                 channel.ack(originalMsg);
             } else {
-                this.logger.warn(`[Trace: ${correlationId}] Transient/Unexpected error. RE-QUEUING message via Nack.`);
+                this.logger.warn(`[Trace: ${correlationId}] Unexpected error. Sending message to DLQ via Nack.`);
                 channel.nack(originalMsg, false, false);
             }
         }

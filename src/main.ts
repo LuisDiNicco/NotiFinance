@@ -7,18 +7,21 @@ import { ValidationPipe } from '@nestjs/common';
 import { CustomExceptionsFilter } from './shared/infrastructure/primary-adapters/http/filters/CustomExceptionsFilter';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import { RequestLoggingInterceptor } from './shared/infrastructure/primary-adapters/http/interceptors/RequestLoggingInterceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const logger = app.get(Logger);
+  const configService = app.get(ConfigService);
   app.useLogger(logger);
 
   // Security headers
   app.use(helmet());
 
   // CORS configuration
+  const corsOrigins = configService.get<string[]>('app.cors.origins', ['http://localhost:3000']);
   app.enableCors({
-    origin: process.env['CORS_ORIGIN']?.split(',') || ['http://localhost:3000'],
+    origin: corsOrigins,
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: 'Content-Type,Authorization,X-Correlation-ID',
@@ -36,6 +39,7 @@ async function bootstrap() {
 
   // Global exception filter
   app.useGlobalFilters(new CustomExceptionsFilter());
+  app.useGlobalInterceptors(new RequestLoggingInterceptor());
 
   // Swagger API Documentation
   const config = new DocumentBuilder()
@@ -48,8 +52,7 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   // Connect RabbitMQ Microservice for Consumers
-  const configService = app.get(ConfigService);
-  const rmqUrl = configService.get<string>('RABBITMQ_URL');
+  const rmqUrl = configService.get<string>('integrations.rabbitmq.url');
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
@@ -59,13 +62,17 @@ async function bootstrap() {
       noAck: false, // Strict Acking required
       queueOptions: {
         durable: true,
+        arguments: {
+          'x-dead-letter-exchange': '',
+          'x-dead-letter-routing-key': 'notification_events.dlq',
+        },
       },
     },
   });
 
   await app.startAllMicroservices();
 
-  const port = configService.get<number>('PORT') || 3000;
+  const port = configService.get<number>('app.port', 3000);
   await app.listen(port);
   logger.log(`Application is running on http://localhost:${port}`);
   logger.log(`API Documentation available at http://localhost:${port}/api`);

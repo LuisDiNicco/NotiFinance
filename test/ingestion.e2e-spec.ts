@@ -1,32 +1,43 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
-import { AppModule } from './../src/app.module';
-import { RedisService } from '../src/shared/infrastructure/base/redis/redis.service';
+import request from 'supertest';
+import { EventIngestionController } from '../src/modules/ingestion/infrastructure/primary-adapters/http/controllers/EventIngestionController';
+import { EventIngestionService } from '../src/modules/ingestion/application/EventIngestionService';
 import { EVENT_PUBLISHER } from '../src/modules/ingestion/application/IEventPublisher';
+import { RedisService } from '../src/shared/infrastructure/base/redis/redis.service';
+import { IdempotencyInterceptor } from '../src/modules/ingestion/infrastructure/primary-adapters/http/interceptors/IdempotencyInterceptor';
 import { CustomExceptionsFilter } from '../src/shared/infrastructure/primary-adapters/http/filters/CustomExceptionsFilter';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { UserPreferenceEntity } from '../src/modules/preferences/infrastructure/secondary-adapters/database/entities/UserPreferenceEntity';
-import { NotificationTemplateEntity } from '../src/modules/template/infrastructure/secondary-adapters/database/entities/NotificationTemplateEntity';
 
 describe('IngestionController (e2e)', () => {
     let app: INestApplication;
     const mockRedisService = { setNx: jest.fn() };
     const mockPublisher = { publishEvent: jest.fn() };
-    const mockRepository = { findOne: jest.fn(), save: jest.fn(), create: jest.fn() };
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockRedisService.setNx.mockResolvedValue(true);
+    });
 
     beforeAll(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [AppModule],
+            controllers: [EventIngestionController],
+            providers: [
+                EventIngestionService,
+                IdempotencyInterceptor,
+                {
+                    provide: RedisService,
+                    useValue: mockRedisService,
+                },
+                {
+                    provide: EVENT_PUBLISHER,
+                    useValue: mockPublisher,
+                },
+            ],
         })
-            .overrideProvider(RedisService).useValue(mockRedisService)
-            .overrideProvider(EVENT_PUBLISHER).useValue(mockPublisher)
-            .overrideProvider(getRepositoryToken(UserPreferenceEntity)).useValue(mockRepository)
-            .overrideProvider(getRepositoryToken(NotificationTemplateEntity)).useValue(mockRepository)
             .compile();
 
         app = moduleFixture.createNestApplication();
-        app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+        app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
         app.useGlobalFilters(new CustomExceptionsFilter());
         await app.init();
     });

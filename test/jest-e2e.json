@@ -1,9 +1,25 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": ".",
+  "rootDir": "..",
   "testEnvironment": "node",
-  "testRegex": ".e2e-spec.ts$",
+  "testRegex": "test/.*\\.e2e-spec\\.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "collectCoverage": true,
+  "collectCoverageFrom": [
+    "src/modules/ingestion/infrastructure/primary-adapters/http/controllers/**/*.ts",
+    "src/modules/template/infrastructure/primary-adapters/http/controllers/**/*.ts",
+    "src/modules/ingestion/infrastructure/primary-adapters/http/controllers/request/**/*.ts",
+    "src/modules/template/infrastructure/primary-adapters/http/controllers/request/**/*.ts"
+  ],
+  "coverageDirectory": "./coverage/e2e",
+  "coverageThreshold": {
+    "global": {
+      "branches": 70,
+      "functions": 80,
+      "lines": 80,
+      "statements": 80
+    }
   }
 }

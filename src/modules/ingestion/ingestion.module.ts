@@ -5,6 +5,7 @@ import { EventIngestionController } from './infrastructure/primary-adapters/http
 import { EventIngestionService } from './application/EventIngestionService';
 import { RabbitMQEventPublisher, RABBITMQ_SERVICE } from './infrastructure/secondary-adapters/message-brokers/publishers/RabbitMQEventPublisher';
 import { EVENT_PUBLISHER } from './application/IEventPublisher';
+import { RabbitMqTopologyService } from './infrastructure/secondary-adapters/message-brokers/RabbitMqTopologyService';
 
 @Module({
     imports: [
@@ -15,10 +16,14 @@ import { EVENT_PUBLISHER } from './application/IEventPublisher';
                 useFactory: (configService: ConfigService) => ({
                     transport: Transport.RMQ,
                     options: {
-                        urls: [configService.get<string>('RABBITMQ_URL') as string],
+                        urls: [configService.get<string>('integrations.rabbitmq.url') as string],
                         queue: 'notification_events',
                         queueOptions: {
                             durable: true,
+                            arguments: {
+                                'x-dead-letter-exchange': '',
+                                'x-dead-letter-routing-key': 'notification_events.dlq',
+                            },
                         },
                     },
                 }),
@@ -29,6 +34,7 @@ import { EVENT_PUBLISHER } from './application/IEventPublisher';
     controllers: [EventIngestionController],
     providers: [
         EventIngestionService,
+        RabbitMqTopologyService,
         {
             provide: EVENT_PUBLISHER,
             useClass: RabbitMQEventPublisher,

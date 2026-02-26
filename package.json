@@ -18,10 +18,14 @@
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
+    "test:unit": "jest --config ./test/jest-unit.json --runInBand",
+    "test:unit:cov": "jest --config ./test/jest-unit.json --coverage --runInBand",
+    "test:arch": "jest test/architecture --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "test:e2e:cov": "jest --config ./test/jest-e2e.json --coverage --runInBand"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^3.1.0",
@@ -32,6 +36,8 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-socket.io": "^11.1.14",
     "@nestjs/swagger": "^11.2.0",
+    "@nestjs/terminus": "^11.1.1",
+    "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.14",
     "amqp-connection-manager": "^5.0.0",

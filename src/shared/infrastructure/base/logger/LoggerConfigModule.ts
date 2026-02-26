@@ -1,33 +1,38 @@
 import { Global, Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { IncomingMessage, ServerResponse } from 'http';
-
-const isProduction = process.env['NODE_ENV'] === 'production';
-
-const pinoHttpConfig = isProduction
-    ? {
-        level: 'info' as const,
-        autoLogging: false,
-        customProps: (req: IncomingMessage, _res: ServerResponse) => ({
-            context: 'HTTP',
-            correlationId: req.headers['x-correlation-id'] || 'no-correlation-id',
-        }),
-    }
-    : {
-        level: 'debug' as const,
-        transport: { target: 'pino-pretty', options: { colorize: true } },
-        autoLogging: false,
-        customProps: (req: IncomingMessage, _res: ServerResponse) => ({
-            context: 'HTTP',
-            correlationId: req.headers['x-correlation-id'] || 'no-correlation-id',
-        }),
-    };
 
 @Global()
 @Module({
     imports: [
-        LoggerModule.forRoot({
-            pinoHttp: pinoHttpConfig,
+        LoggerModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService) => {
+                const isProduction = configService.get<string>('NODE_ENV') === 'production';
+
+                const pinoHttpConfig = isProduction
+                    ? {
+                        level: 'info' as const,
+                        autoLogging: false,
+                        customProps: (req: IncomingMessage, _res: ServerResponse) => ({
+                            context: 'HTTP',
+                            correlationId: req.headers['x-correlation-id'] || 'no-correlation-id',
+                        }),
+                    }
+                    : {
+                        level: 'debug' as const,
+                        transport: { target: 'pino-pretty', options: { colorize: true } },
+                        autoLogging: false,
+                        customProps: (req: IncomingMessage, _res: ServerResponse) => ({
+                            context: 'HTTP',
+                            correlationId: req.headers['x-correlation-id'] || 'no-correlation-id',
+                        }),
+                    };
+
+                return { pinoHttp: pinoHttpConfig };
+            },
         }),
     ],
     exports: [LoggerModule],

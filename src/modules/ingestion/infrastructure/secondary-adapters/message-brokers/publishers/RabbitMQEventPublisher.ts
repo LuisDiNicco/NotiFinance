@@ -1,5 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { firstValueFrom } from 'rxjs';
 import { IEventPublisher } from '../../../../application/IEventPublisher';
 import { EventPayload } from '../../../../domain/EventPayload';
 
@@ -24,7 +25,7 @@ export class RabbitMQEventPublisher implements IEventPublisher {
                 }
             };
 
-            this.rabbitClient.emit(`notification.${event.eventType}`, message);
+            await firstValueFrom(this.rabbitClient.emit(`notification.${event.eventType}`, message));
 
             this.logger.debug(`Successfully emitted event to RabbitMQ Exchange: notification.${event.eventType}`);
         } catch (error) {

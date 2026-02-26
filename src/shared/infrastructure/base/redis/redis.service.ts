@@ -17,4 +17,9 @@ export class RedisService {
         });
         return result === 'OK';
     }
+
+    async ping(): Promise<boolean> {
+        const result = await this.redisClient.ping();
+        return result === 'PONG';
+    }
 }

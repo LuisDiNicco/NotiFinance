@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ITemplateRepository } from '../../../../application/ITemplateRepository';
+import {
+    ITemplateRepository,
+    PaginatedRequest,
+    PaginatedResponse,
+} from '../../../../application/ITemplateRepository';
 import { NotificationTemplate } from '../../../../domain/entities/NotificationTemplate';
 import { NotificationTemplateEntity } from '../entities/NotificationTemplateEntity';
 import { NotificationTemplateMapper } from '../maps/NotificationTemplateMapper';
@@ -35,5 +39,21 @@ export class TemplateRepository implements ITemplateRepository {
 
         const saved = await this.repo.save(entity);
         return NotificationTemplateMapper.toDomain(saved);
+    }
+
+    async findPaginated(request: PaginatedRequest): Promise<PaginatedResponse<NotificationTemplate>> {
+        const { page, limit, sortBy } = request;
+        const [entities, total] = await this.repo.findAndCount({
+            order: { [sortBy]: 'ASC' },
+            skip: (page - 1) * limit,
+            take: limit,
+        });
+
+        return {
+            data: entities.map((entity) => NotificationTemplateMapper.toDomain(entity)),
+            total,
+            page,
+            totalPages: Math.ceil(total / limit) || 1,
+        };
     }
 }

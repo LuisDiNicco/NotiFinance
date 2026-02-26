@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsNumber, IsString, validateSync, IsOptional } from 'class-validator';
+import { IsBoolean, IsEnum, IsNumber, IsString, validateSync, IsOptional } from 'class-validator';
 
 export enum Environment {
     Development = 'development',
@@ -27,6 +27,22 @@ class EnvironmentVariables {
     @IsString()
     @IsOptional()
     DATABASE_URL: string = 'postgres://postgres:postgres@localhost:5432/noticore';
+
+    @IsString()
+    @IsOptional()
+    CORS_ORIGIN: string = 'http://localhost:3000';
+
+    @IsNumber()
+    @IsOptional()
+    THROTTLE_TTL: number = 60;
+
+    @IsNumber()
+    @IsOptional()
+    THROTTLE_LIMIT: number = 30;
+
+    @IsBoolean()
+    @IsOptional()
+    RUN_MIGRATIONS: boolean = true;
 }
 
 export function validate(config: Record<string, unknown>) {
