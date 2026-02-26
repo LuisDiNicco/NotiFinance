@@ -5,16 +5,27 @@ import { NotificationGateway } from '../websockets/NotificationGateway';
 
 @Injectable()
 export class InAppChannelAdapter implements IChannelProvider {
-    public channelType: NotificationChannel = NotificationChannel.IN_APP;
-    private readonly logger = new Logger(InAppChannelAdapter.name);
+  public channelType: NotificationChannel = NotificationChannel.IN_APP;
+  private readonly logger = new Logger(InAppChannelAdapter.name);
 
-    constructor(private readonly gateway: NotificationGateway) { }
+  constructor(private readonly gateway: NotificationGateway) {}
 
-    async send(userId: string, subject: string, body: string, correlationId: string): Promise<void> {
-        this.logger.log(`[Trace: ${correlationId}] Pushing IN_APP notification to User [${userId}] via WebSocket.`);
+  send(
+    userId: string,
+    subject: string,
+    body: string,
+    correlationId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `[Trace: ${correlationId}] Pushing IN_APP notification to User [${userId}] via WebSocket.`,
+    );
 
-        this.gateway.emitNotification(userId, subject, body, correlationId);
+    this.gateway.emitNotification(userId, subject, body, correlationId);
 
-        this.logger.log(`[Trace: ${correlationId}] IN_APP notification pushed to User [${userId}]`);
-    }
+    this.logger.log(
+      `[Trace: ${correlationId}] IN_APP notification pushed to User [${userId}]`,
+    );
+
+    return Promise.resolve();
+  }
 }

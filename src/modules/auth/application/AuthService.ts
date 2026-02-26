@@ -7,167 +7,240 @@ import { User } from '../domain/entities/User';
 import { EmailAlreadyExistsError } from '../domain/errors/EmailAlreadyExistsError';
 import { InvalidCredentialsError } from '../domain/errors/InvalidCredentialsError';
 import { DemoSeedService } from './DemoSeedService';
+import { RedisService } from '../../../shared/infrastructure/base/redis/redis.service';
+import { AccountTemporarilyLockedError } from '../domain/errors/AccountTemporarilyLockedError';
 
 interface TokenPayload {
-    sub: string;
-    email: string;
-    isDemo: boolean;
+  sub: string;
+  email: string;
+  isDemo: boolean;
 }
 
 export interface AuthTokens {
-    accessToken: string;
-    refreshToken?: string;
+  accessToken: string;
+  refreshToken?: string;
 }
 
 @Injectable()
 export class AuthService {
-    private static readonly SALT_ROUNDS = 10;
+  private static readonly SALT_ROUNDS = 10;
+  private readonly maxFailedLoginAttempts: number;
+  private readonly lockoutMinutes: number;
 
-    constructor(
-        @Inject(USER_REPOSITORY)
-        private readonly userRepository: IUserRepository,
-        private readonly jwtService: JwtService,
-        private readonly configService: ConfigService,
-        private readonly demoSeedService: DemoSeedService,
-    ) { }
+  constructor(
+    @Inject(USER_REPOSITORY)
+    private readonly userRepository: IUserRepository,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly demoSeedService: DemoSeedService,
+    private readonly redisService: RedisService,
+  ) {
+    this.maxFailedLoginAttempts = this.configService.get<number>(
+      'auth.loginMaxAttempts',
+      5,
+    );
+    this.lockoutMinutes = this.configService.get<number>(
+      'auth.loginLockoutMinutes',
+      15,
+    );
+  }
 
-    public async register(email: string, password: string, displayName: string): Promise<{ user: User; tokens: AuthTokens; }> {
-        const normalizedEmail = email.trim().toLowerCase();
-        const existingUser = await this.userRepository.findByEmail(normalizedEmail);
+  public async register(
+    email: string,
+    password: string,
+    displayName: string,
+  ): Promise<{ user: User; tokens: AuthTokens }> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await this.userRepository.findByEmail(normalizedEmail);
 
-        if (existingUser) {
-            throw new EmailAlreadyExistsError(normalizedEmail);
-        }
-
-        const passwordHash = await bcrypt.hash(password, AuthService.SALT_ROUNDS);
-        const user = new User(normalizedEmail, passwordHash, displayName, false);
-        const savedUser = await this.userRepository.save(user);
-
-        return {
-            user: savedUser,
-            tokens: this.generateTokens(savedUser),
-        };
+    if (existingUser) {
+      throw new EmailAlreadyExistsError(normalizedEmail);
     }
 
-    public async login(email: string, password: string): Promise<{ user: User; tokens: AuthTokens; }> {
-        const normalizedEmail = email.trim().toLowerCase();
-        const user = await this.userRepository.findByEmail(normalizedEmail);
+    const passwordHash = await bcrypt.hash(password, AuthService.SALT_ROUNDS);
+    const user = new User(normalizedEmail, passwordHash, displayName, false);
+    const savedUser = await this.userRepository.save(user);
 
-        if (!user) {
-            throw new InvalidCredentialsError();
-        }
+    return {
+      user: savedUser,
+      tokens: this.generateTokens(savedUser),
+    };
+  }
 
-        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+  public async login(
+    email: string,
+    password: string,
+  ): Promise<{ user: User; tokens: AuthTokens }> {
+    const normalizedEmail = email.trim().toLowerCase();
 
-        if (!isPasswordValid) {
-            throw new InvalidCredentialsError();
-        }
-
-        return {
-            user,
-            tokens: this.generateTokens(user),
-        };
+    if (await this.isLoginLocked(normalizedEmail)) {
+      throw new AccountTemporarilyLockedError();
     }
 
-    public async refreshToken(token: string): Promise<AuthTokens> {
-        const refreshSecret = this.configService.get<string>('auth.jwtRefreshSecret', 'refresh-secret');
-        const payload = await this.jwtService.verifyAsync<TokenPayload>(token, {
-            secret: refreshSecret,
-        });
+    const user = await this.userRepository.findByEmail(normalizedEmail);
 
-        const user = await this.userRepository.findById(payload.sub);
-
-        if (!user) {
-            throw new InvalidCredentialsError();
-        }
-
-        return this.generateTokens(user);
+    if (!user) {
+      await this.registerFailedLoginAttempt(normalizedEmail);
+      throw new InvalidCredentialsError();
     }
 
-    public async createDemoSession(): Promise<{ user: User; tokens: AuthTokens; }> {
-        const savedUser = await this.demoSeedService.createDemoUserWithSeedData();
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
-        return {
-            user: savedUser,
-            tokens: this.generateDemoTokens(savedUser),
-        };
+    if (!isPasswordValid) {
+      await this.registerFailedLoginAttempt(normalizedEmail);
+      throw new InvalidCredentialsError();
     }
 
-    public async validateUser(userId: string): Promise<User> {
-        const user = await this.userRepository.findById(userId);
+    await this.clearFailedLoginState(normalizedEmail);
 
-        if (!user) {
-            throw new InvalidCredentialsError();
-        }
+    return {
+      user,
+      tokens: this.generateTokens(user),
+    };
+  }
 
-        return user;
+  public async refreshToken(token: string): Promise<AuthTokens> {
+    const refreshSecret = this.configService.get<string>(
+      'auth.jwtRefreshSecret',
+      'refresh-secret',
+    );
+    const payload = await this.jwtService.verifyAsync<TokenPayload>(token, {
+      secret: refreshSecret,
+    });
+
+    const user = await this.userRepository.findById(payload.sub);
+
+    if (!user) {
+      throw new InvalidCredentialsError();
     }
 
-    private generateTokens(user: User): AuthTokens {
-        if (!user.id) {
-            throw new Error('User id is required to generate tokens');
-        }
+    return this.generateTokens(user);
+  }
 
-        const payload: TokenPayload = {
-            sub: user.id,
-            email: user.email,
-            isDemo: user.isDemo,
-        };
+  public async createDemoSession(): Promise<{
+    user: User;
+    tokens: AuthTokens;
+  }> {
+    const savedUser = await this.demoSeedService.createDemoUserWithSeedData();
 
-        const refreshSecret = this.configService.get<string>('auth.jwtRefreshSecret', 'refresh-secret');
-        const refreshExpiresIn = this.configService.get<string>('auth.jwtRefreshExpiresIn', '7d');
-        const accessToken = this.jwtService.sign(payload);
-        const refreshToken = this.jwtService.sign(payload, {
-            secret: refreshSecret,
-            expiresIn: this.parseDurationToSeconds(refreshExpiresIn),
-        });
+    return {
+      user: savedUser,
+      tokens: this.generateDemoTokens(savedUser),
+    };
+  }
 
-        return {
-            accessToken,
-            refreshToken,
-        };
+  public async validateUser(userId: string): Promise<User> {
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      throw new InvalidCredentialsError();
     }
 
-    private parseDurationToSeconds(value: string): number {
-        const trimmedValue = value.trim().toLowerCase();
-        const match = trimmedValue.match(/^(\d+)(s|m|h|d)$/);
+    return user;
+  }
 
-        if (!match) {
-            return 604800;
-        }
-
-        const amount = Number(match[1]);
-        const unit = match[2];
-
-        switch (unit) {
-            case 's':
-                return amount;
-            case 'm':
-                return amount * 60;
-            case 'h':
-                return amount * 3600;
-            case 'd':
-                return amount * 86400;
-            default:
-                return 604800;
-        }
+  private generateTokens(user: User): AuthTokens {
+    if (!user.id) {
+      throw new Error('User id is required to generate tokens');
     }
 
-    private generateDemoTokens(user: User): AuthTokens {
-        if (!user.id) {
-            throw new Error('User id is required to generate tokens');
-        }
+    const payload: TokenPayload = {
+      sub: user.id,
+      email: user.email,
+      isDemo: user.isDemo,
+    };
 
-        const payload: TokenPayload = {
-            sub: user.id,
-            email: user.email,
-            isDemo: user.isDemo,
-        };
+    const refreshSecret = this.configService.get<string>(
+      'auth.jwtRefreshSecret',
+      'refresh-secret',
+    );
+    const refreshExpiresIn = this.configService.get<string>(
+      'auth.jwtRefreshExpiresIn',
+      '7d',
+    );
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: refreshSecret,
+      expiresIn: this.parseDurationToSeconds(refreshExpiresIn),
+    });
 
-        return {
-            accessToken: this.jwtService.sign(payload, {
-                expiresIn: 24 * 60 * 60,
-            }),
-        };
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  private parseDurationToSeconds(value: string): number {
+    const trimmedValue = value.trim().toLowerCase();
+    const match = trimmedValue.match(/^(\d+)(s|m|h|d)$/);
+
+    if (!match) {
+      return 604800;
     }
+
+    const amount = Number(match[1]);
+    const unit = match[2];
+
+    switch (unit) {
+      case 's':
+        return amount;
+      case 'm':
+        return amount * 60;
+      case 'h':
+        return amount * 3600;
+      case 'd':
+        return amount * 86400;
+      default:
+        return 604800;
+    }
+  }
+
+  private generateDemoTokens(user: User): AuthTokens {
+    if (!user.id) {
+      throw new Error('User id is required to generate tokens');
+    }
+
+    const payload: TokenPayload = {
+      sub: user.id,
+      email: user.email,
+      isDemo: user.isDemo,
+    };
+
+    return {
+      accessToken: this.jwtService.sign(payload, {
+        expiresIn: 24 * 60 * 60,
+      }),
+    };
+  }
+
+  private getFailedAttemptsKey(email: string): string {
+    return `auth:login:attempts:${email}`;
+  }
+
+  private getLockKey(email: string): string {
+    return `auth:login:locked:${email}`;
+  }
+
+  private async isLoginLocked(email: string): Promise<boolean> {
+    const lock = await this.redisService.get(this.getLockKey(email));
+    return lock === '1';
+  }
+
+  private async registerFailedLoginAttempt(email: string): Promise<void> {
+    const lockoutSeconds = this.lockoutMinutes * 60;
+    const attempts = await this.redisService.increment(
+      this.getFailedAttemptsKey(email),
+      lockoutSeconds,
+    );
+
+    if (attempts >= this.maxFailedLoginAttempts) {
+      await this.redisService.set(this.getLockKey(email), '1', lockoutSeconds);
+      await this.redisService.delete(this.getFailedAttemptsKey(email));
+    }
+  }
+
+  private async clearFailedLoginState(email: string): Promise<void> {
+    await this.redisService.delete(this.getFailedAttemptsKey(email));
+    await this.redisService.delete(this.getLockKey(email));
+  }
 }

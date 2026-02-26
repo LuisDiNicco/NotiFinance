@@ -19,7 +19,9 @@ async function bootstrap() {
   app.use(helmet());
 
   // CORS configuration
-  const corsOrigins = configService.get<string[]>('app.cors.origins', ['http://localhost:3000']);
+  const corsOrigins = configService.get<string[]>('app.cors.origins', [
+    'http://localhost:3000',
+  ]);
   app.enableCors({
     origin: corsOrigins,
     credentials: true,
@@ -100,8 +102,11 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`Application is running on http://localhost:${port}`);
   logger.log(`API Documentation available at http://localhost:${port}/api`);
-  logger.log(`RabbitMQ Microservice connected and polling from 'alert-evaluation-queue'`);
-  logger.log(`RabbitMQ Microservice connected and polling from 'notification-events-queue'`);
+  logger.log(
+    `RabbitMQ Microservice connected and polling from 'alert-evaluation-queue'`,
+  );
+  logger.log(
+    `RabbitMQ Microservice connected and polling from 'notification-events-queue'`,
+  );
 }
-bootstrap();
-
+void bootstrap();

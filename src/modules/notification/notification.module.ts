@@ -15,28 +15,31 @@ import { TypeOrmNotificationRepository } from './infrastructure/secondary-adapte
 import { NotificationController } from './infrastructure/primary-adapters/http/controllers/NotificationController';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([NotificationEntity]),
-        PreferencesModule,
-        TemplateModule,
-    ],
-    controllers: [EventConsumer, NotificationController],
-    providers: [
-        DispatcherService,
-        NotificationService,
-        NotificationGateway,
-        EmailChannelAdapter,
-        InAppChannelAdapter,
-        {
-            provide: NOTIFICATION_REPOSITORY,
-            useClass: TypeOrmNotificationRepository,
-        },
-        {
-            provide: CHANNEL_PROVIDERS,
-            useFactory: (email: EmailChannelAdapter, inApp: InAppChannelAdapter) => [email, inApp],
-            inject: [EmailChannelAdapter, InAppChannelAdapter],
-        },
-    ],
-    exports: [NotificationService],
+  imports: [
+    TypeOrmModule.forFeature([NotificationEntity]),
+    PreferencesModule,
+    TemplateModule,
+  ],
+  controllers: [EventConsumer, NotificationController],
+  providers: [
+    DispatcherService,
+    NotificationService,
+    NotificationGateway,
+    EmailChannelAdapter,
+    InAppChannelAdapter,
+    {
+      provide: NOTIFICATION_REPOSITORY,
+      useClass: TypeOrmNotificationRepository,
+    },
+    {
+      provide: CHANNEL_PROVIDERS,
+      useFactory: (email: EmailChannelAdapter, inApp: InAppChannelAdapter) => [
+        email,
+        inApp,
+      ],
+      inject: [EmailChannelAdapter, InAppChannelAdapter],
+    },
+  ],
+  exports: [NotificationService],
 })
-export class NotificationModule { }
+export class NotificationModule {}

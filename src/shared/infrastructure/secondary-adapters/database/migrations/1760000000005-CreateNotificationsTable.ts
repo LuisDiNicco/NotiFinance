@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateNotificationsTable1760000000005 implements MigrationInterface {
-    name = 'CreateNotificationsTable1760000000005';
+  name = 'CreateNotificationsTable1760000000005';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "notifications" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -22,13 +22,21 @@ export class CreateNotificationsTable1760000000005 implements MigrationInterface
             )
         `);
 
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_notifications_user_created" ON "notifications" ("userId", "createdAt")`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_notifications_user_is_read" ON "notifications" ("userId", "isRead")`);
-    }
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_notifications_user_created" ON "notifications" ("userId", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_notifications_user_is_read" ON "notifications" ("userId", "isRead")`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_notifications_user_is_read"');
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_notifications_user_created"');
-        await queryRunner.query('DROP TABLE IF EXISTS "notifications"');
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_notifications_user_is_read"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_notifications_user_created"',
+    );
+    await queryRunner.query('DROP TABLE IF EXISTS "notifications"');
+  }
 }

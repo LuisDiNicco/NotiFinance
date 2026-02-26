@@ -5,20 +5,20 @@ import { RedisService, REDIS_CLIENT } from './redis.service';
 
 @Global()
 @Module({
-    providers: [
-        {
-            provide: REDIS_CLIENT,
-            useFactory: async (configService: ConfigService) => {
-                const client = createClient({
-                    url: configService.get<string>('integrations.redis.url') as string,
-                });
-                await client.connect();
-                return client;
-            },
-            inject: [ConfigService],
-        },
-        RedisService,
-    ],
-    exports: [REDIS_CLIENT, RedisService],
+  providers: [
+    {
+      provide: REDIS_CLIENT,
+      useFactory: async (configService: ConfigService) => {
+        const client = createClient({
+          url: configService.get<string>('integrations.redis.url') as string,
+        });
+        await client.connect();
+        return client;
+      },
+      inject: [ConfigService],
+    },
+    RedisService,
+  ],
+  exports: [REDIS_CLIENT, RedisService],
 })
-export class RedisModule { }
+export class RedisModule {}

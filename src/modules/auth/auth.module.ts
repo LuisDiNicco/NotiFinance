@@ -18,48 +18,57 @@ import { NotificationModule } from '../notification/notification.module';
 import { MarketDataModule } from '../market-data/market-data.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([UserEntity]),
-        PassportModule,
-        PortfolioModule,
-        WatchlistModule,
-        AlertModule,
-        NotificationModule,
-        MarketDataModule,
-        JwtModule.registerAsync({
-            imports: [ConfigModule],
-            inject: [ConfigService],
-            useFactory: (configService: ConfigService) => {
-                const expiresInRaw = configService.get<string>('auth.jwtExpiresIn', '15m');
-                const match = expiresInRaw.trim().toLowerCase().match(/^(\d+)(s|m|h|d)$/);
-                const amount = Number(match?.[1] ?? 15);
-                const unit = match?.[2] ?? 'm';
-                const expiresInSeconds =
-                    unit === 's' ? amount :
-                        unit === 'm' ? amount * 60 :
-                            unit === 'h' ? amount * 3600 :
-                                amount * 86400;
+  imports: [
+    TypeOrmModule.forFeature([UserEntity]),
+    PassportModule,
+    PortfolioModule,
+    WatchlistModule,
+    AlertModule,
+    NotificationModule,
+    MarketDataModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const expiresInRaw = configService.get<string>(
+          'auth.jwtExpiresIn',
+          '15m',
+        );
+        const match = expiresInRaw
+          .trim()
+          .toLowerCase()
+          .match(/^(\d+)(s|m|h|d)$/);
+        const amount = Number(match?.[1] ?? 15);
+        const unit = match?.[2] ?? 'm';
+        const expiresInSeconds =
+          unit === 's'
+            ? amount
+            : unit === 'm'
+              ? amount * 60
+              : unit === 'h'
+                ? amount * 3600
+                : amount * 86400;
 
-                return {
-                    secret: configService.get<string>('auth.jwtSecret', 'secret'),
-                    signOptions: {
-                        expiresIn: expiresInSeconds,
-                    },
-                };
-            },
-        }),
-    ],
-    controllers: [AuthController],
-    providers: [
-        AuthService,
-        DemoSeedService,
-        DemoUsersCleanupJob,
-        JwtStrategy,
-        {
-            provide: USER_REPOSITORY,
-            useClass: UserRepository,
-        },
-    ],
-    exports: [AuthService],
+        return {
+          secret: configService.get<string>('auth.jwtSecret', 'secret'),
+          signOptions: {
+            expiresIn: expiresInSeconds,
+          },
+        };
+      },
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [
+    AuthService,
+    DemoSeedService,
+    DemoUsersCleanupJob,
+    JwtStrategy,
+    {
+      provide: USER_REPOSITORY,
+      useClass: UserRepository,
+    },
+  ],
+  exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

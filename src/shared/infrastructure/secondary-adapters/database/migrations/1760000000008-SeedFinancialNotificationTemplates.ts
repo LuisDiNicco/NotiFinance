@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class SeedFinancialNotificationTemplates1760000000008 implements MigrationInterface {
-    name = 'SeedFinancialNotificationTemplates1760000000008';
+  name = 'SeedFinancialNotificationTemplates1760000000008';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             DELETE FROM "notification_templates"
             WHERE "eventType" IN (
                 'payment.success',
@@ -15,7 +15,7 @@ export class SeedFinancialNotificationTemplates1760000000008 implements Migratio
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             INSERT INTO "notification_templates" ("name", "eventType", "subjectTemplate", "bodyTemplate")
             VALUES
                 ('Alerta Precio Arriba', 'alert.price.above', 'Alerta: precio por encima del umbral', 'El activo alcanzó {{currentValue}} y superó el umbral de {{threshold}}.'),
@@ -33,10 +33,10 @@ export class SeedFinancialNotificationTemplates1760000000008 implements Migratio
                 "bodyTemplate" = EXCLUDED."bodyTemplate",
                 "updatedAt" = now()
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             DELETE FROM "notification_templates"
             WHERE "eventType" IN (
                 'alert.price.above',
@@ -49,5 +49,5 @@ export class SeedFinancialNotificationTemplates1760000000008 implements Migratio
                 'alert.pct.down'
             )
         `);
-    }
+  }
 }

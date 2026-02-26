@@ -36,8 +36,17 @@ import { PortfolioModule } from './modules/portfolio/portfolio.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => [
         {
+          name: 'default',
           ttl: configService.get<number>('app.throttle.ttl', 60),
-          limit: configService.get<number>('app.throttle.limit', 30),
+          limit: configService.get<number>('app.throttle.limit', 100),
+        },
+        {
+          name: 'authenticated',
+          ttl: configService.get<number>('app.throttle.ttl', 60),
+          limit: configService.get<number>(
+            'app.throttle.authenticatedLimit',
+            300,
+          ),
         },
       ],
     }),
@@ -67,4 +76,4 @@ import { PortfolioModule } from './modules/portfolio/portfolio.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

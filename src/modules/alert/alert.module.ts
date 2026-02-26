@@ -11,20 +11,20 @@ import { IngestionModule } from '../ingestion/ingestion.module';
 import { MarketDataModule } from '../market-data/market-data.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([AlertEntity]),
-        IngestionModule,
-        MarketDataModule,
-    ],
-    controllers: [AlertController, AlertEvaluationConsumer],
-    providers: [
-        AlertService,
-        AlertEvaluationEngine,
-        {
-            provide: ALERT_REPOSITORY,
-            useClass: TypeOrmAlertRepository,
-        },
-    ],
-    exports: [AlertService, AlertEvaluationEngine],
+  imports: [
+    TypeOrmModule.forFeature([AlertEntity]),
+    IngestionModule,
+    MarketDataModule,
+  ],
+  controllers: [AlertController, AlertEvaluationConsumer],
+  providers: [
+    AlertService,
+    AlertEvaluationEngine,
+    {
+      provide: ALERT_REPOSITORY,
+      useClass: TypeOrmAlertRepository,
+    },
+  ],
+  exports: [AlertService, AlertEvaluationEngine],
 })
-export class AlertModule { }
+export class AlertModule {}

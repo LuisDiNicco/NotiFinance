@@ -8,15 +8,15 @@ import { WatchlistItemEntity } from './infrastructure/secondary-adapters/databas
 import { TypeOrmWatchlistRepository } from './infrastructure/secondary-adapters/database/repositories/TypeOrmWatchlistRepository';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([WatchlistItemEntity]), MarketDataModule],
-    controllers: [WatchlistController],
-    providers: [
-        WatchlistService,
-        {
-            provide: WATCHLIST_REPOSITORY,
-            useClass: TypeOrmWatchlistRepository,
-        },
-    ],
-    exports: [WatchlistService],
+  imports: [TypeOrmModule.forFeature([WatchlistItemEntity]), MarketDataModule],
+  controllers: [WatchlistController],
+  providers: [
+    WatchlistService,
+    {
+      provide: WATCHLIST_REPOSITORY,
+      useClass: TypeOrmWatchlistRepository,
+    },
+  ],
+  exports: [WatchlistService],
 })
-export class WatchlistModule { }
+export class WatchlistModule {}

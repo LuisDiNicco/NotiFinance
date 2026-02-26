@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class SeedInitialAssets1760000000003 implements MigrationInterface {
-    name = 'SeedInitialAssets1760000000003';
+  name = 'SeedInitialAssets1760000000003';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             INSERT INTO "assets" ("ticker", "name", "assetType", "sector", "yahooTicker", "isActive")
             VALUES
                 ('GGAL', 'Grupo Financiero Galicia', 'STOCK', 'Financiero', 'GGAL.BA', true),
@@ -16,12 +16,12 @@ export class SeedInitialAssets1760000000003 implements MigrationInterface {
                 ('GD30', 'Globales 2030', 'BOND', 'Renta Fija', 'GD30.BA', true)
             ON CONFLICT ("ticker") DO NOTHING
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             DELETE FROM "assets"
             WHERE "ticker" IN ('GGAL', 'YPFD', 'PAMP', 'AAPL', 'MSFT', 'AL30', 'GD30')
         `);
-    }
+  }
 }

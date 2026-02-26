@@ -1,12 +1,12 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateMarketDataTables1760000000002 implements MigrationInterface {
-    name = 'CreateMarketDataTables1760000000002';
+  name = 'CreateMarketDataTables1760000000002';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "assets" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -23,7 +23,7 @@ export class CreateMarketDataTables1760000000002 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "market_quotes" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -45,7 +45,7 @@ export class CreateMarketDataTables1760000000002 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "dollar_quotes" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -60,7 +60,7 @@ export class CreateMarketDataTables1760000000002 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "country_risk" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -73,23 +73,39 @@ export class CreateMarketDataTables1760000000002 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_assets_ticker" ON "assets" ("ticker")`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_assets_asset_type" ON "assets" ("assetType")`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_market_quotes_asset_date" ON "market_quotes" ("assetId", "date")`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_dollar_quotes_type_timestamp" ON "dollar_quotes" ("type", "timestamp")`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_country_risk_timestamp" ON "country_risk" ("timestamp")`);
-    }
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_assets_ticker" ON "assets" ("ticker")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_assets_asset_type" ON "assets" ("assetType")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_market_quotes_asset_date" ON "market_quotes" ("assetId", "date")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_dollar_quotes_type_timestamp" ON "dollar_quotes" ("type", "timestamp")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_country_risk_timestamp" ON "country_risk" ("timestamp")`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_country_risk_timestamp"');
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_dollar_quotes_type_timestamp"');
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_market_quotes_asset_date"');
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_assets_asset_type"');
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_assets_ticker"');
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_country_risk_timestamp"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_dollar_quotes_type_timestamp"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_market_quotes_asset_date"',
+    );
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_assets_asset_type"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_assets_ticker"');
 
-        await queryRunner.query('DROP TABLE IF EXISTS "country_risk"');
-        await queryRunner.query('DROP TABLE IF EXISTS "dollar_quotes"');
-        await queryRunner.query('DROP TABLE IF EXISTS "market_quotes"');
-        await queryRunner.query('DROP TABLE IF EXISTS "assets"');
-    }
+    await queryRunner.query('DROP TABLE IF EXISTS "country_risk"');
+    await queryRunner.query('DROP TABLE IF EXISTS "dollar_quotes"');
+    await queryRunner.query('DROP TABLE IF EXISTS "market_quotes"');
+    await queryRunner.query('DROP TABLE IF EXISTS "assets"');
+  }
 }

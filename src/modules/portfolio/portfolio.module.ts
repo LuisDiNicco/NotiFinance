@@ -14,21 +14,24 @@ import { TypeOrmPortfolioRepository } from './infrastructure/secondary-adapters/
 import { TypeOrmTradeRepository } from './infrastructure/secondary-adapters/database/repositories/TypeOrmTradeRepository';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([PortfolioEntity, TradeEntity]), MarketDataModule],
-    controllers: [PortfolioController, TradeController],
-    providers: [
-        PortfolioService,
-        TradeService,
-        HoldingsCalculator,
-        {
-            provide: PORTFOLIO_REPOSITORY,
-            useClass: TypeOrmPortfolioRepository,
-        },
-        {
-            provide: TRADE_REPOSITORY,
-            useClass: TypeOrmTradeRepository,
-        },
-    ],
-    exports: [PortfolioService, TradeService],
+  imports: [
+    TypeOrmModule.forFeature([PortfolioEntity, TradeEntity]),
+    MarketDataModule,
+  ],
+  controllers: [PortfolioController, TradeController],
+  providers: [
+    PortfolioService,
+    TradeService,
+    HoldingsCalculator,
+    {
+      provide: PORTFOLIO_REPOSITORY,
+      useClass: TypeOrmPortfolioRepository,
+    },
+    {
+      provide: TRADE_REPOSITORY,
+      useClass: TypeOrmTradeRepository,
+    },
+  ],
+  exports: [PortfolioService, TradeService],
 })
-export class PortfolioModule { }
+export class PortfolioModule {}

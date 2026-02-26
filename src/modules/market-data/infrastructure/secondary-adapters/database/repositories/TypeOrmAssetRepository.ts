@@ -8,53 +8,53 @@ import { AssetEntity } from '../entities/AssetEntity';
 
 @Injectable()
 export class TypeOrmAssetRepository implements IAssetRepository {
-    constructor(
-        @InjectRepository(AssetEntity)
-        private readonly repository: Repository<AssetEntity>,
-    ) { }
+  constructor(
+    @InjectRepository(AssetEntity)
+    private readonly repository: Repository<AssetEntity>,
+  ) {}
 
-    public async findAll(type?: AssetType): Promise<Asset[]> {
-        const entities = await this.repository.find({
-            where: type ? { assetType: type, isActive: true } : { isActive: true },
-            order: { ticker: 'ASC' },
-        });
+  public async findAll(type?: AssetType): Promise<Asset[]> {
+    const entities = await this.repository.find({
+      where: type ? { assetType: type, isActive: true } : { isActive: true },
+      order: { ticker: 'ASC' },
+    });
 
-        return entities.map((entity) => this.toDomain(entity));
-    }
+    return entities.map((entity) => this.toDomain(entity));
+  }
 
-    public async findByTicker(ticker: string): Promise<Asset | null> {
-        const normalizedTicker = ticker.trim().toUpperCase();
-        const entity = await this.repository.findOne({
-            where: { ticker: normalizedTicker, isActive: true },
-        });
+  public async findByTicker(ticker: string): Promise<Asset | null> {
+    const normalizedTicker = ticker.trim().toUpperCase();
+    const entity = await this.repository.findOne({
+      where: { ticker: normalizedTicker, isActive: true },
+    });
 
-        return entity ? this.toDomain(entity) : null;
-    }
+    return entity ? this.toDomain(entity) : null;
+  }
 
-    public async search(query: string, limit: number): Promise<Asset[]> {
-        const normalizedQuery = query.trim();
-        const entities = await this.repository.find({
-            where: [
-                { ticker: ILike(`%${normalizedQuery}%`), isActive: true },
-                { name: ILike(`%${normalizedQuery}%`), isActive: true },
-            ],
-            order: { ticker: 'ASC' },
-            take: limit,
-        });
+  public async search(query: string, limit: number): Promise<Asset[]> {
+    const normalizedQuery = query.trim();
+    const entities = await this.repository.find({
+      where: [
+        { ticker: ILike(`%${normalizedQuery}%`), isActive: true },
+        { name: ILike(`%${normalizedQuery}%`), isActive: true },
+      ],
+      order: { ticker: 'ASC' },
+      take: limit,
+    });
 
-        return entities.map((entity) => this.toDomain(entity));
-    }
+    return entities.map((entity) => this.toDomain(entity));
+  }
 
-    private toDomain(entity: AssetEntity): Asset {
-        const asset = new Asset(
-            entity.ticker,
-            entity.name,
-            entity.assetType as AssetType,
-            entity.sector,
-            entity.yahooTicker,
-        );
+  private toDomain(entity: AssetEntity): Asset {
+    const asset = new Asset(
+      entity.ticker,
+      entity.name,
+      entity.assetType as AssetType,
+      entity.sector,
+      entity.yahooTicker,
+    );
 
-        asset.id = entity.id;
-        return asset;
-    }
+    asset.id = entity.id;
+    return asset;
+  }
 }

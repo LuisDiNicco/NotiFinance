@@ -7,57 +7,57 @@ import { CountryRiskEntity } from '../entities/CountryRiskEntity';
 
 @Injectable()
 export class TypeOrmCountryRiskRepository implements ICountryRiskRepository {
-    constructor(
-        @InjectRepository(CountryRiskEntity)
-        private readonly repository: Repository<CountryRiskEntity>,
-    ) { }
+  constructor(
+    @InjectRepository(CountryRiskEntity)
+    private readonly repository: Repository<CountryRiskEntity>,
+  ) {}
 
-    public async save(risk: CountryRisk): Promise<void> {
-        const entity = this.repository.create({
-            value: risk.value,
-            changePct: risk.changePct,
-            timestamp: risk.timestamp,
-        });
+  public async save(risk: CountryRisk): Promise<void> {
+    const entity = this.repository.create({
+      value: risk.value,
+      changePct: risk.changePct,
+      timestamp: risk.timestamp,
+    });
 
-        await this.repository.save(entity);
+    await this.repository.save(entity);
+  }
+
+  public async findLatest(): Promise<CountryRisk | null> {
+    const entity = await this.repository.findOne({
+      order: { timestamp: 'DESC' },
+    });
+
+    if (!entity) {
+      return null;
     }
 
-    public async findLatest(): Promise<CountryRisk | null> {
-        const entity = await this.repository.findOne({
-            order: { timestamp: 'DESC' },
-        });
+    return new CountryRisk(
+      Number(entity.value),
+      Number(entity.changePct),
+      entity.timestamp,
+    );
+  }
 
-        if (!entity) {
-            return null;
-        }
+  public async findHistory(days: number): Promise<CountryRisk[]> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - Math.max(days, 1));
 
-        return new CountryRisk(
-            Number(entity.value),
-            Number(entity.changePct),
-            entity.timestamp,
-        );
-    }
+    const entities = await this.repository.find({
+      where: {
+        timestamp: MoreThanOrEqual(startDate),
+      },
+      order: {
+        timestamp: 'ASC',
+      },
+    });
 
-    public async findHistory(days: number): Promise<CountryRisk[]> {
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - Math.max(days, 1));
-
-        const entities = await this.repository.find({
-            where: {
-                timestamp: MoreThanOrEqual(startDate),
-            },
-            order: {
-                timestamp: 'ASC',
-            },
-        });
-
-        return entities.map(
-            (entity) =>
-                new CountryRisk(
-                    Number(entity.value),
-                    Number(entity.changePct),
-                    entity.timestamp,
-                ),
-        );
-    }
+    return entities.map(
+      (entity) =>
+        new CountryRisk(
+          Number(entity.value),
+          Number(entity.changePct),
+          entity.timestamp,
+        ),
+    );
+  }
 }

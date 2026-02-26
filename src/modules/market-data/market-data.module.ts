@@ -6,13 +6,12 @@ import { MarketDataService } from './application/MarketDataService';
 import { ASSET_REPOSITORY } from './application/IAssetRepository';
 import { DOLLAR_PROVIDER } from './application/IDollarProvider';
 import { RISK_PROVIDER } from './application/IRiskProvider';
+import { DOLLAR_QUOTE_REPOSITORY } from './application/IDollarQuoteRepository';
+import { COUNTRY_RISK_REPOSITORY } from './application/ICountryRiskRepository';
 import {
-    DOLLAR_QUOTE_REPOSITORY,
-} from './application/IDollarQuoteRepository';
-import {
-    COUNTRY_RISK_REPOSITORY,
-} from './application/ICountryRiskRepository';
-import { QUOTE_FALLBACK_PROVIDER, QUOTE_PROVIDER } from './application/IQuoteProvider';
+  QUOTE_FALLBACK_PROVIDER,
+  QUOTE_PROVIDER,
+} from './application/IQuoteProvider';
 import { QUOTE_REPOSITORY } from './application/IQuoteRepository';
 import { MARKET_CACHE } from './application/IMarketCache';
 import { TypeOrmAssetRepository } from './infrastructure/secondary-adapters/database/repositories/TypeOrmAssetRepository';
@@ -37,59 +36,66 @@ import { StockQuoteFetchJob } from './infrastructure/primary-adapters/jobs/Stock
 import { CedearQuoteFetchJob } from './infrastructure/primary-adapters/jobs/CedearQuoteFetchJob';
 import { BondQuoteFetchJob } from './infrastructure/primary-adapters/jobs/BondQuoteFetchJob';
 import { HistoricalDataJob } from './infrastructure/primary-adapters/jobs/HistoricalDataJob';
+import { MarketGateway } from './infrastructure/secondary-adapters/websockets/MarketGateway';
 
 @Module({
-    imports: [
-        ConfigModule,
-        IngestionModule,
-        TypeOrmModule.forFeature([AssetEntity, MarketQuoteEntity, DollarQuoteEntity, CountryRiskEntity]),
-    ],
-    controllers: [MarketController, AssetController, SearchController],
-    providers: [
-        MarketDataService,
-        {
-            provide: ASSET_REPOSITORY,
-            useClass: TypeOrmAssetRepository,
-        },
-        {
-            provide: DOLLAR_QUOTE_REPOSITORY,
-            useClass: TypeOrmDollarQuoteRepository,
-        },
-        {
-            provide: COUNTRY_RISK_REPOSITORY,
-            useClass: TypeOrmCountryRiskRepository,
-        },
-        {
-            provide: QUOTE_REPOSITORY,
-            useClass: TypeOrmQuoteRepository,
-        },
-        {
-            provide: DOLLAR_PROVIDER,
-            useClass: DolarApiClient,
-        },
-        {
-            provide: RISK_PROVIDER,
-            useClass: RiskProviderClient,
-        },
-        {
-            provide: QUOTE_PROVIDER,
-            useClass: YahooFinanceClient,
-        },
-        {
-            provide: QUOTE_FALLBACK_PROVIDER,
-            useClass: AlphaVantageClient,
-        },
-        {
-            provide: MARKET_CACHE,
-            useClass: RedisMarketCache,
-        },
-        DollarFetchJob,
-        RiskFetchJob,
-        StockQuoteFetchJob,
-        CedearQuoteFetchJob,
-        BondQuoteFetchJob,
-        HistoricalDataJob,
-    ],
-    exports: [MarketDataService],
+  imports: [
+    ConfigModule,
+    IngestionModule,
+    TypeOrmModule.forFeature([
+      AssetEntity,
+      MarketQuoteEntity,
+      DollarQuoteEntity,
+      CountryRiskEntity,
+    ]),
+  ],
+  controllers: [MarketController, AssetController, SearchController],
+  providers: [
+    MarketDataService,
+    {
+      provide: ASSET_REPOSITORY,
+      useClass: TypeOrmAssetRepository,
+    },
+    {
+      provide: DOLLAR_QUOTE_REPOSITORY,
+      useClass: TypeOrmDollarQuoteRepository,
+    },
+    {
+      provide: COUNTRY_RISK_REPOSITORY,
+      useClass: TypeOrmCountryRiskRepository,
+    },
+    {
+      provide: QUOTE_REPOSITORY,
+      useClass: TypeOrmQuoteRepository,
+    },
+    {
+      provide: DOLLAR_PROVIDER,
+      useClass: DolarApiClient,
+    },
+    {
+      provide: RISK_PROVIDER,
+      useClass: RiskProviderClient,
+    },
+    {
+      provide: QUOTE_PROVIDER,
+      useClass: YahooFinanceClient,
+    },
+    {
+      provide: QUOTE_FALLBACK_PROVIDER,
+      useClass: AlphaVantageClient,
+    },
+    {
+      provide: MARKET_CACHE,
+      useClass: RedisMarketCache,
+    },
+    DollarFetchJob,
+    RiskFetchJob,
+    StockQuoteFetchJob,
+    CedearQuoteFetchJob,
+    BondQuoteFetchJob,
+    HistoricalDataJob,
+    MarketGateway,
+  ],
+  exports: [MarketDataService],
 })
-export class MarketDataModule { }
+export class MarketDataModule {}

@@ -1,12 +1,12 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateUsersTable1760000000001 implements MigrationInterface {
-    name = 'CreateUsersTable1760000000001';
+  name = 'CreateUsersTable1760000000001';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "users" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -21,13 +21,13 @@ export class CreateUsersTable1760000000001 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS "IDX_users_email" ON "users" ("email")
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_users_email"');
-        await queryRunner.query('DROP TABLE IF EXISTS "users"');
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_users_email"');
+    await queryRunner.query('DROP TABLE IF EXISTS "users"');
+  }
 }

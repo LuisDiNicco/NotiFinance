@@ -1,4 +1,8 @@
-import { ExecutionContext, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ExecutionContext,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { WatchlistController } from '../src/modules/watchlist/infrastructure/primary-adapters/http/controllers/WatchlistController';
@@ -7,71 +11,73 @@ import { WatchlistItem } from '../src/modules/watchlist/domain/entities/Watchlis
 import { JwtAuthGuard } from '../src/modules/auth/infrastructure/primary-adapters/http/guards/JwtAuthGuard';
 
 describe('Watchlist endpoints (e2e)', () => {
-    let app: INestApplication;
+  let app: INestApplication;
 
-    const item = new WatchlistItem({
-        userId: 'user-1',
-        assetId: 'asset-1',
-    });
-    item.id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const item = new WatchlistItem({
+    userId: 'user-1',
+    assetId: 'asset-1',
+  });
+  item.id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-    const watchlistServiceMock = {
-        getUserWatchlist: jest.fn().mockResolvedValue([item]),
-        addToWatchlist: jest.fn().mockResolvedValue(item),
-        removeFromWatchlist: jest.fn().mockResolvedValue(undefined),
-    };
+  const watchlistServiceMock = {
+    getUserWatchlist: jest.fn().mockResolvedValue([item]),
+    addToWatchlist: jest.fn().mockResolvedValue(item),
+    removeFromWatchlist: jest.fn().mockResolvedValue(undefined),
+  };
 
-    beforeAll(async () => {
-        const moduleFixture: TestingModule = await Test.createTestingModule({
-            controllers: [WatchlistController],
-            providers: [
-                {
-                    provide: WatchlistService,
-                    useValue: watchlistServiceMock,
-                },
-            ],
-        })
-            .overrideGuard(JwtAuthGuard)
-            .useValue({
-                canActivate: (context: ExecutionContext) => {
-                    const req = context.switchToHttp().getRequest();
-                    req.user = { sub: 'user-1' };
-                    return true;
-                },
-            })
-            .compile();
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      controllers: [WatchlistController],
+      providers: [
+        {
+          provide: WatchlistService,
+          useValue: watchlistServiceMock,
+        },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { sub: 'user-1' };
+          return true;
+        },
+      })
+      .compile();
 
-        app = moduleFixture.createNestApplication();
-        app.useGlobalPipes(
-            new ValidationPipe({
-                whitelist: true,
-                forbidNonWhitelisted: true,
-                transform: true,
-            }),
-        );
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
-        await app.init();
-    });
+    await app.init();
+  });
 
-    afterAll(async () => {
-        await app.close();
-    });
+  afterAll(async () => {
+    await app.close();
+  });
 
-    it('/watchlist (GET)', async () => {
-        const response = await request(app.getHttpServer()).get('/watchlist').expect(200);
-        expect(response.body).toHaveLength(1);
-    });
+  it('/watchlist (GET)', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/watchlist')
+      .expect(200);
+    expect(response.body).toHaveLength(1);
+  });
 
-    it('/watchlist (POST)', async () => {
-        const response = await request(app.getHttpServer())
-            .post('/watchlist')
-            .send({ ticker: 'GGAL' })
-            .expect(201);
+  it('/watchlist (POST)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/watchlist')
+      .send({ ticker: 'GGAL' })
+      .expect(201);
 
-        expect(response.body.id).toBe(item.id);
-    });
+    expect(response.body.id).toBe(item.id);
+  });
 
-    it('/watchlist/:ticker (DELETE)', async () => {
-        await request(app.getHttpServer()).delete('/watchlist/GGAL').expect(200);
-    });
+  it('/watchlist/:ticker (DELETE)', async () => {
+    await request(app.getHttpServer()).delete('/watchlist/GGAL').expect(200);
+  });
 });

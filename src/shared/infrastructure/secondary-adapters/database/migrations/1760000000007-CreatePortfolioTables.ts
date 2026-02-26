@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreatePortfolioTables1760000000007 implements MigrationInterface {
-    name = 'CreatePortfolioTables1760000000007';
+  name = 'CreatePortfolioTables1760000000007';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "portfolios" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -17,7 +17,7 @@ export class CreatePortfolioTables1760000000007 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "trades" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -37,14 +37,22 @@ export class CreatePortfolioTables1760000000007 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_portfolios_user_created" ON "portfolios" ("userId", "createdAt")`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_trades_portfolio_executed" ON "trades" ("portfolioId", "executedAt")`);
-    }
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_portfolios_user_created" ON "portfolios" ("userId", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_trades_portfolio_executed" ON "trades" ("portfolioId", "executedAt")`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_trades_portfolio_executed"');
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_portfolios_user_created"');
-        await queryRunner.query('DROP TABLE IF EXISTS "trades"');
-        await queryRunner.query('DROP TABLE IF EXISTS "portfolios"');
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_trades_portfolio_executed"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_portfolios_user_created"',
+    );
+    await queryRunner.query('DROP TABLE IF EXISTS "trades"');
+    await queryRunner.query('DROP TABLE IF EXISTS "portfolios"');
+  }
 }

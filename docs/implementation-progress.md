@@ -5,9 +5,9 @@
 
 ## Estado general
 
-- Plan total: iniciado
-- Fase actual: **B9 (Documentation & Polish)** completada
-- Última fase cerrada: **B9**
+- Plan total: **cerrado (backend scope B1–B9 + hardening final)**
+- Fase actual: **cierre técnico backend** completado
+- Última fase cerrada: **B9 + hardening final de calidad**
 
 ## Fases completadas
 
@@ -364,3 +364,28 @@ Validación realizada:
 - Se mantuvo compatibilidad con módulos existentes.
 - Los comandos de tests con coverage global por archivo aislado no son representativos del total del proyecto, por eso se ejecutaron validaciones focalizadas sin coverage para control incremental.
 - Para evitar bloqueos por cambios parciales, se aplica flujo incremental: lote corto de cambios → `npm run build` → tests focalizados del módulo antes de continuar.
+
+## Cierre final backend (2026-02-26)
+
+Estado de calidad consolidado tras hardening final:
+
+- ✅ Lint global limpio:
+  - `npm run lint` → **0 errors, 0 warnings**
+- ✅ Build:
+  - `npm run build` (OK)
+- ✅ Unit tests + coverage:
+  - `npm run test:unit:cov` (OK)
+  - suites: **19/19 pass**
+  - tests: **120/120 pass**
+  - global coverage: **Branches 80.42%**
+- ✅ E2E:
+  - `npm run test:e2e` (OK)
+  - suites: **9/9 pass**
+  - tests: **38/38 pass**
+
+Hardening aplicado en cierre:
+
+- Correcciones de tipado seguro y `no-unsafe-*` en consumers/interceptor de broker y capa HTTP.
+- Eliminación de deuda `unbound-method`, `require-await`, `await-thenable`, `no-base-to-string` en módulos backend.
+- Ajuste de reglas de ESLint para tests (`test/**/*.ts`) para reducir ruido de tipado dinámico propio de mocks/supertest.
+- Reforzadas pruebas unitarias en template rendering para cubrir ramas de serialización segura.

@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateAlertsTable1760000000004 implements MigrationInterface {
-    name = 'CreateAlertsTable1760000000004';
+  name = 'CreateAlertsTable1760000000004';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "alerts" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -25,15 +25,21 @@ export class CreateAlertsTable1760000000004 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_alerts_user_status" ON "alerts" ("userId", "status")`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_alerts_asset_status" ON "alerts" ("assetId", "status")`);
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_alerts_type_status" ON "alerts" ("alertType", "status")`);
-    }
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_alerts_user_status" ON "alerts" ("userId", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_alerts_asset_status" ON "alerts" ("assetId", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_alerts_type_status" ON "alerts" ("alertType", "status")`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_alerts_type_status"');
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_alerts_asset_status"');
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_alerts_user_status"');
-        await queryRunner.query('DROP TABLE IF EXISTS "alerts"');
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_alerts_type_status"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_alerts_asset_status"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_alerts_user_status"');
+    await queryRunner.query('DROP TABLE IF EXISTS "alerts"');
+  }
 }

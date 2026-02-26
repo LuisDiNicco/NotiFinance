@@ -3,8 +3,8 @@
  * This is a business logic error indicating the user has no notification preferences configured.
  */
 export class PreferencesNotFoundError extends Error {
-    constructor(userId: string) {
-        super(`Preferences not found for user: ${userId}`);
-        this.name = 'PreferencesNotFoundError';
-    }
+  constructor(userId: string) {
+    super(`Preferences not found for user: ${userId}`);
+    this.name = 'PreferencesNotFoundError';
+  }
 }

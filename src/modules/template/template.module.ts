@@ -7,15 +7,15 @@ import { TemplateRepository } from './infrastructure/secondary-adapters/database
 import { TEMPLATE_REPO } from './application/ITemplateRepository';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([NotificationTemplateEntity])],
-    controllers: [TemplateController],
-    providers: [
-        TemplateCompilerService,
-        {
-            provide: TEMPLATE_REPO,
-            useClass: TemplateRepository,
-        },
-    ],
-    exports: [TemplateCompilerService],
+  imports: [TypeOrmModule.forFeature([NotificationTemplateEntity])],
+  controllers: [TemplateController],
+  providers: [
+    TemplateCompilerService,
+    {
+      provide: TEMPLATE_REPO,
+      useClass: TemplateRepository,
+    },
+  ],
+  exports: [TemplateCompilerService],
 })
-export class TemplateModule { }
+export class TemplateModule {}

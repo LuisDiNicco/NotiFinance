@@ -1,19 +1,24 @@
-import { CreateDateColumn, DeleteDateColumn, UpdateDateColumn, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  CreateDateColumn,
+  DeleteDateColumn,
+  UpdateDateColumn,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 /**
  * Abstract base entity for all database entities.
  * Provides common columns: id, createdAt, updatedAt, deletedAt
  */
 export abstract class BaseEntity {
-    @PrimaryGeneratedColumn('uuid')
-    id!: string;
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
 
-    @CreateDateColumn()
-    createdAt!: Date;
+  @CreateDateColumn()
+  createdAt!: Date;
 
-    @UpdateDateColumn()
-    updatedAt!: Date;
+  @UpdateDateColumn()
+  updatedAt!: Date;
 
-    @DeleteDateColumn({ nullable: true })
-    deletedAt?: Date;
+  @DeleteDateColumn({ nullable: true })
+  deletedAt?: Date;
 }

@@ -1,12 +1,12 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class InitialNotificationTables1760000000000 implements MigrationInterface {
-    name = 'InitialNotificationTables1760000000000';
+  name = 'InitialNotificationTables1760000000000';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "notification_templates" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -21,7 +21,7 @@ export class InitialNotificationTables1760000000000 implements MigrationInterfac
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "user_preferences" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -34,10 +34,10 @@ export class InitialNotificationTables1760000000000 implements MigrationInterfac
                 CONSTRAINT "PK_user_preferences_id" PRIMARY KEY ("id")
             )
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query('DROP TABLE IF EXISTS "user_preferences"');
-        await queryRunner.query('DROP TABLE IF EXISTS "notification_templates"');
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('DROP TABLE IF EXISTS "user_preferences"');
+    await queryRunner.query('DROP TABLE IF EXISTS "notification_templates"');
+  }
 }

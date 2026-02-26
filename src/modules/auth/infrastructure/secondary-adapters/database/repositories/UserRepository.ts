@@ -8,32 +8,34 @@ import { UserMapper } from '../maps/UserMapper';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
-    constructor(
-        @InjectRepository(UserEntity)
-        private readonly repository: Repository<UserEntity>,
-    ) { }
+  constructor(
+    @InjectRepository(UserEntity)
+    private readonly repository: Repository<UserEntity>,
+  ) {}
 
-    public async findByEmail(email: string): Promise<User | null> {
-        const entity = await this.repository.findOne({ where: { email } });
-        return entity ? UserMapper.toDomain(entity) : null;
-    }
+  public async findByEmail(email: string): Promise<User | null> {
+    const entity = await this.repository.findOne({ where: { email } });
+    return entity ? UserMapper.toDomain(entity) : null;
+  }
 
-    public async findById(id: string): Promise<User | null> {
-        const entity = await this.repository.findOne({ where: { id } });
-        return entity ? UserMapper.toDomain(entity) : null;
-    }
+  public async findById(id: string): Promise<User | null> {
+    const entity = await this.repository.findOne({ where: { id } });
+    return entity ? UserMapper.toDomain(entity) : null;
+  }
 
-    public async save(user: User): Promise<User> {
-        const persisted = await this.repository.save(UserMapper.toPersistence(user));
-        return UserMapper.toDomain(persisted);
-    }
+  public async save(user: User): Promise<User> {
+    const persisted = await this.repository.save(
+      UserMapper.toPersistence(user),
+    );
+    return UserMapper.toDomain(persisted);
+  }
 
-    public async deleteExpiredDemoUsers(expirationDate: Date): Promise<number> {
-        const result = await this.repository.delete({
-            isDemo: true,
-            createdAt: LessThan(expirationDate),
-        });
+  public async deleteExpiredDemoUsers(expirationDate: Date): Promise<number> {
+    const result = await this.repository.delete({
+      isDemo: true,
+      createdAt: LessThan(expirationDate),
+    });
 
-        return result.affected ?? 0;
-    }
+    return result.affected ?? 0;
+  }
 }

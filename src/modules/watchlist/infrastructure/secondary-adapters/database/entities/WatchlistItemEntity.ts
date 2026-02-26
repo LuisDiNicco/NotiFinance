@@ -5,9 +5,9 @@ import { BaseEntity } from '../../../../../../shared/infrastructure/base/databas
 @Unique('UQ_watchlist_user_asset', ['userId', 'assetId'])
 @Index('IDX_watchlist_user_created', ['userId', 'createdAt'])
 export class WatchlistItemEntity extends BaseEntity {
-    @Column({ type: 'uuid' })
-    userId!: string;
+  @Column({ type: 'uuid' })
+  userId!: string;
 
-    @Column({ type: 'uuid' })
-    assetId!: string;
+  @Column({ type: 'uuid' })
+  assetId!: string;
 }

@@ -5,34 +5,36 @@ import { AlertType } from '../../../../../../src/modules/alert/domain/enums/Aler
 import { NotificationChannel } from '../../../../../../src/modules/preferences/domain/enums/NotificationChannel';
 
 describe('Alert entity', () => {
-    it('evaluates ABOVE condition correctly', () => {
-        const alert = new Alert({
-            userId: 'user-1',
-            alertType: AlertType.PRICE,
-            condition: AlertCondition.ABOVE,
-            threshold: 100,
-            channels: [NotificationChannel.IN_APP],
-            isRecurring: true,
-        });
-
-        expect(alert.evaluate(110)).toBe(true);
-        expect(alert.evaluate(90)).toBe(false);
+  it('evaluates ABOVE condition correctly', () => {
+    const alert = new Alert({
+      userId: 'user-1',
+      alertType: AlertType.PRICE,
+      condition: AlertCondition.ABOVE,
+      threshold: 100,
+      channels: [NotificationChannel.IN_APP],
+      isRecurring: true,
     });
 
-    it('marks non recurring alert as triggered', () => {
-        const alert = new Alert({
-            userId: 'user-1',
-            alertType: AlertType.PRICE,
-            condition: AlertCondition.ABOVE,
-            threshold: 100,
-            channels: [NotificationChannel.IN_APP],
-            isRecurring: false,
-            status: AlertStatus.ACTIVE,
-        });
+    expect(alert.evaluate(110)).toBe(true);
+    expect(alert.evaluate(90)).toBe(false);
+  });
 
-        alert.trigger(new Date('2026-01-01T00:00:00.000Z'));
-
-        expect(alert.status).toBe(AlertStatus.TRIGGERED);
-        expect(alert.lastTriggeredAt?.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+  it('marks non recurring alert as triggered', () => {
+    const alert = new Alert({
+      userId: 'user-1',
+      alertType: AlertType.PRICE,
+      condition: AlertCondition.ABOVE,
+      threshold: 100,
+      channels: [NotificationChannel.IN_APP],
+      isRecurring: false,
+      status: AlertStatus.ACTIVE,
     });
+
+    alert.trigger(new Date('2026-01-01T00:00:00.000Z'));
+
+    expect(alert.status).toBe(AlertStatus.TRIGGERED);
+    expect(alert.lastTriggeredAt?.toISOString()).toBe(
+      '2026-01-01T00:00:00.000Z',
+    );
+  });
 });

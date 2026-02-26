@@ -7,15 +7,15 @@ import { PreferencesRepository } from './infrastructure/secondary-adapters/datab
 import { PREFERENCES_REPO } from './application/IPreferencesRepository';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([UserPreferenceEntity])],
-    controllers: [PreferencesController],
-    providers: [
-        PreferencesService,
-        {
-            provide: PREFERENCES_REPO,
-            useClass: PreferencesRepository,
-        },
-    ],
-    exports: [PreferencesService],
+  imports: [TypeOrmModule.forFeature([UserPreferenceEntity])],
+  controllers: [PreferencesController],
+  providers: [
+    PreferencesService,
+    {
+      provide: PREFERENCES_REPO,
+      useClass: PreferencesRepository,
+    },
+  ],
+  exports: [PreferencesService],
 })
-export class PreferencesModule { }
+export class PreferencesModule {}

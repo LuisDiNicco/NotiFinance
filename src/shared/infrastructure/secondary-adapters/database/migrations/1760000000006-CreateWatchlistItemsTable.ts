@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateWatchlistItemsTable1760000000006 implements MigrationInterface {
-    name = 'CreateWatchlistItemsTable1760000000006';
+  name = 'CreateWatchlistItemsTable1760000000006';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "watchlist_items" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -18,11 +18,15 @@ export class CreateWatchlistItemsTable1760000000006 implements MigrationInterfac
             )
         `);
 
-        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_watchlist_user_created" ON "watchlist_items" ("userId", "createdAt")`);
-    }
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_watchlist_user_created" ON "watchlist_items" ("userId", "createdAt")`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_watchlist_user_created"');
-        await queryRunner.query('DROP TABLE IF EXISTS "watchlist_items"');
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_watchlist_user_created"',
+    );
+    await queryRunner.query('DROP TABLE IF EXISTS "watchlist_items"');
+  }
 }
