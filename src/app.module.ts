@@ -21,6 +21,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import marketConfig from './shared/infrastructure/base/config/market.config';
 import { MarketDataModule } from './modules/market-data/market-data.module';
 import { AlertModule } from './modules/alert/alert.module';
+import { WatchlistModule } from './modules/watchlist/watchlist.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AlertModule } from './modules/alert/alert.module';
     AuthModule,
     MarketDataModule,
     AlertModule,
+    WatchlistModule,
     PreferencesModule,
     TemplateModule,
     NotificationModule,

@@ -196,11 +196,30 @@ Validación realizada:
 
 Próximos entregables técnicos a implementar:
 
-1. `Watchlist` (entidad/servicio/controller/repository + migración).
+1. `Watchlist` implementado (entidad/servicio/controller/repository + migración + tests).
 2. Base de `Portfolio` y `Trade` (dominio + persistencia inicial).
-3. Endpoints protegidos para watchlist y portafolios.
-4. Tests unit/e2e focalizados de watchlist.
-5. Integración de precios de mercado en cálculos básicos de holdings.
+3. Endpoints protegidos para portafolios/trades.
+4. Cálculo inicial de holdings y valorización básica.
+5. Tests unit/e2e focalizados de portfolio.
+
+Detalle Watchlist ya implementado:
+
+- Nuevo módulo `watchlist`:
+  - Domain: `WatchlistItem`
+  - Application: `IWatchlistRepository`, `WatchlistService`
+  - Infrastructure: `WatchlistItemEntity`, mapper, repo TypeORM, `WatchlistController`
+- Endpoints autenticados:
+  - `GET /watchlist`
+  - `POST /watchlist`
+  - `DELETE /watchlist/:ticker`
+- Migración creada:
+  - `1760000000006-CreateWatchlistItemsTable.ts`
+
+Validación realizada:
+
+- ✅ `npm run build` (OK)
+- ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/watchlist/application/WatchlistService.spec.ts` (OK)
+- ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/watchlist.e2e-spec.ts` (OK)
 
 ## Notas de implementación
 
