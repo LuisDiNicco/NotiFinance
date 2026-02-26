@@ -4,6 +4,7 @@ import { TemplateCompilerService } from '../../../template/application/TemplateC
 import { PreferencesService } from '../../../preferences/application/PreferencesService';
 import { CHANNEL_PROVIDERS, IChannelProvider } from './IChannelProvider';
 import { PreferencesNotFoundError } from '../../../preferences/domain/errors/PreferencesNotFoundError';
+import { NotificationService } from './NotificationService';
 
 @Injectable()
 export class DispatcherService {
@@ -12,6 +13,7 @@ export class DispatcherService {
     constructor(
         private readonly templateService: TemplateCompilerService,
         private readonly preferencesService: PreferencesService,
+        private readonly notificationService: NotificationService,
         @Inject(CHANNEL_PROVIDERS) private readonly channelProviders: IChannelProvider[],
     ) { }
 
@@ -33,7 +35,17 @@ export class DispatcherService {
         // 2. Resolve and Compile Template
         const compiled = await this.templateService.compileTemplate(event.eventType, event.metadata);
 
-        // 3. Dispatch to Allowed Target Channels
+        // 3. Persist in-app notification record
+        await this.notificationService.createNotification({
+            userId: event.recipientId,
+            alertId: typeof event.metadata['alertId'] === 'string' ? event.metadata['alertId'] : null,
+            title: compiled.subject,
+            body: compiled.body,
+            type: event.eventType,
+            metadata: event.metadata,
+        });
+
+        // 4. Dispatch to Allowed Target Channels
         const dispatchPromises = [];
 
         for (const provider of this.channelProviders) {

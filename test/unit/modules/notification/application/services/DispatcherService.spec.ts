@@ -8,11 +8,13 @@ import { EventType } from '../../../../../../src/modules/ingestion/domain/enums/
 import { NotificationChannel } from '../../../../../../src/modules/preferences/domain/enums/NotificationChannel';
 import { UserPreference } from '../../../../../../src/modules/preferences/domain/entities/UserPreference';
 import { PreferencesNotFoundError } from '../../../../../../src/modules/preferences/domain/errors/PreferencesNotFoundError';
+import { NotificationService } from '../../../../../../src/modules/notification/application/services/NotificationService';
 
 describe('DispatcherService', () => {
     let dispatcher: DispatcherService;
     let templateService: jest.Mocked<TemplateCompilerService>;
     let preferencesService: jest.Mocked<PreferencesService>;
+    let notificationService: jest.Mocked<NotificationService>;
     let mockEmailChannel: jest.Mocked<IChannelProvider>;
 
     beforeEach(async () => {
@@ -26,6 +28,15 @@ describe('DispatcherService', () => {
             createOrUpdatePreferences: jest.fn(),
         } as unknown as jest.Mocked<PreferencesService>;
 
+        notificationService = {
+            getUserNotifications: jest.fn(),
+            getUnreadCount: jest.fn(),
+            createNotification: jest.fn(),
+            markAsRead: jest.fn(),
+            markAllAsRead: jest.fn(),
+            deleteNotification: jest.fn(),
+        } as unknown as jest.Mocked<NotificationService>;
+
         mockEmailChannel = {
             channelType: NotificationChannel.EMAIL,
             send: jest.fn().mockResolvedValue(undefined),
@@ -36,6 +47,7 @@ describe('DispatcherService', () => {
                 DispatcherService,
                 { provide: TemplateCompilerService, useValue: templateService },
                 { provide: PreferencesService, useValue: preferencesService },
+                { provide: NotificationService, useValue: notificationService },
                 { provide: CHANNEL_PROVIDERS, useValue: [mockEmailChannel] },
             ],
         }).compile();

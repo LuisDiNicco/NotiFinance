@@ -6,8 +6,8 @@
 ## Estado general
 
 - Plan total: iniciado
-- Fase actual: **B4 (Notification Expansion)** en progreso
-- Última fase cerrada: **B3**
+- Fase actual: **B5 (Portfolio & Watchlist)** en progreso
+- Última fase cerrada: **B4**
 
 ## Fases completadas
 
@@ -165,15 +165,42 @@ Validación realizada:
 
 ## Pendiente inmediato (siguiente fase)
 
-### ⏳ B4 — Notification Module Expansion (en progreso)
+### ✅ B4 — Notification Module Expansion (base funcional)
+
+Implementado en backend:
+
+- Persistencia de notificaciones:
+  - Domain: `Notification`
+  - Application: `INotificationRepository`, `NotificationService`
+  - Infrastructure: `NotificationEntity`, `NotificationMapper`, `TypeOrmNotificationRepository`
+- HTTP autenticado:
+  - `NotificationController`
+  - endpoints:
+    - `GET /notifications`
+    - `GET /notifications/count`
+    - `PATCH /notifications/:id/read`
+    - `PATCH /notifications/read-all`
+    - `DELETE /notifications/:id`
+- Integración en flujo existente:
+  - `DispatcherService` persiste notificación antes de enviar por canales
+- Migración creada:
+  - `1760000000005-CreateNotificationsTable.ts`
+
+Validación realizada:
+
+- ✅ `npm run build` (OK)
+- ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/notification/application/services/DispatcherService.spec.ts` (OK)
+- ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/notification.e2e-spec.ts` (OK)
+
+### ⏳ B5 — Portfolio & Watchlist (en progreso)
 
 Próximos entregables técnicos a implementar:
 
-1. Nueva entidad y repositorio de notificaciones persistidas.
-2. `NotificationService` para list/count/read/read-all/delete.
-3. `NotificationController` con endpoints autenticados.
-4. Integración `alert.triggered` hacia persistencia + push por canales.
-5. Ajuste de templates/event types para alertas financieras.
+1. `Watchlist` (entidad/servicio/controller/repository + migración).
+2. Base de `Portfolio` y `Trade` (dominio + persistencia inicial).
+3. Endpoints protegidos para watchlist y portafolios.
+4. Tests unit/e2e focalizados de watchlist.
+5. Integración de precios de mercado en cálculos básicos de holdings.
 
 ## Notas de implementación
 
