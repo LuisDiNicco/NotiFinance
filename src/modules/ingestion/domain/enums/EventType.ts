@@ -6,4 +6,5 @@ export enum EventType {
     MARKET_DOLLAR_UPDATED = 'market.dollar.updated',
     MARKET_RISK_UPDATED = 'market.risk.updated',
     MARKET_QUOTE_UPDATED = 'market.quote.updated',
+    ALERT_TRIGGERED = 'alert.triggered',
 }

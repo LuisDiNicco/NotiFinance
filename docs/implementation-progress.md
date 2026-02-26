@@ -1,13 +1,13 @@
 # NotiFinance — Implementation Progress
 
 **Fecha:** 2026-02-26  
-**Scope actual:** Backend Fases B1 + B2 (persistencia parcial completada)
+**Scope actual:** Backend Fases B1 + B3 (B3 base completada)
 
 ## Estado general
 
 - Plan total: iniciado
-- Fase actual: **B2 (Market Data)** en progreso
-- Última fase cerrada: **B1**
+- Fase actual: **B4 (Notification Expansion)** en progreso
+- Última fase cerrada: **B3**
 
 ## Fases completadas
 
@@ -128,19 +128,52 @@ Validación realizada:
 - ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/market-data/application/MarketDataService.spec.ts` (OK)
 - ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/market-data.e2e-spec.ts` (OK)
 
+### ✅ B3 — Alert Module (base funcional)
+
+Implementado en backend:
+
+- Nuevo módulo `alert` con arquitectura hexagonal:
+  - Domain:
+    - `Alert`
+    - `AlertType`, `AlertCondition`, `AlertStatus`
+    - `AlertLimitExceededError`, `AlertNotFoundError`
+  - Application:
+    - `IAlertRepository`
+    - `AlertService` (create/list/update/status/delete)
+    - `AlertEvaluationEngine` (asset/dollar/risk)
+  - Infrastructure:
+    - `AlertEntity`, `AlertMapper`, `TypeOrmAlertRepository`
+    - `AlertController` protegido con `JwtAuthGuard`
+    - `AlertEvaluationConsumer` para eventos de mercado
+    - DTOs request para create/update/status
+- Integración en `AppModule`:
+  - `AlertModule`
+- Eventos:
+  - `EventType.ALERT_TRIGGERED` agregado
+  - publicación de `alert.triggered` cuando se dispara una alerta
+- Migración creada:
+  - `1760000000004-CreateAlertsTable.ts`
+- Error handling:
+  - Mapeo de `AlertNotFoundError` => `404`
+  - Mapeo de `AlertLimitExceededError` => `409`
+
+Validación realizada:
+
+- ✅ `npm run build` (OK)
+- ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/alert/application/AlertService.spec.ts test/unit/modules/alert/application/AlertEvaluationEngine.spec.ts test/unit/modules/alert/domain/entities/Alert.spec.ts` (OK)
+- ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/alert.e2e-spec.ts` (OK)
+
 ## Pendiente inmediato (siguiente fase)
 
-### ⏳ B2 — Market Data Module (pendiente para completitud total)
+### ⏳ B4 — Notification Module Expansion (en progreso)
 
 Próximos entregables técnicos a implementar:
 
-1. Integración Yahoo Finance para quotes de acciones/CEDEARs/bonos.
-2. Cache Redis para market-data (hoy el fallback persistido ya está activo para dólar/riesgo/históricos por activo).
-3. Seed completo del catálogo (~80 acciones, ~300 CEDEARs, bonos, LECAPs, ONs).
-4. Ajustar enrich de `top-movers` para incluir más campos operativos (ej: último volumen y timestamp normalizado).
-5. Consolidar invalidación/refresh de caché cuando corren jobs de actualización.
-
-> Nota: Yahoo histórico por activo y persistencia de `market_quotes` ya están iniciados; falta completar batch quotes, cron y endpoints extendidos para cerrar B2 al 100%.
+1. Nueva entidad y repositorio de notificaciones persistidas.
+2. `NotificationService` para list/count/read/read-all/delete.
+3. `NotificationController` con endpoints autenticados.
+4. Integración `alert.triggered` hacia persistencia + push por canales.
+5. Ajuste de templates/event types para alertas financieras.
 
 ## Notas de implementación
 

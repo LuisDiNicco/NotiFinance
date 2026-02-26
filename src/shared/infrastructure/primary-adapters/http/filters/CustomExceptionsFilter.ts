@@ -68,6 +68,8 @@ export class CustomExceptionsFilter implements ExceptionFilter {
             ['PreferencesNotFoundError', HttpStatus.NOT_FOUND],
             ['TemplateNotFoundError', HttpStatus.NOT_FOUND],
             ['AssetNotFoundError', HttpStatus.NOT_FOUND],
+            ['AlertNotFoundError', HttpStatus.NOT_FOUND],
+            ['AlertLimitExceededError', HttpStatus.CONFLICT],
             ['EntityNotFound', HttpStatus.NOT_FOUND],
             ['ValidationError', HttpStatus.BAD_REQUEST],
             ['InvalidStateTransitionError', HttpStatus.CONFLICT],

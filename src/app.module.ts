@@ -20,6 +20,7 @@ import authConfig from './shared/infrastructure/base/config/auth.config';
 import { AuthModule } from './modules/auth/auth.module';
 import marketConfig from './shared/infrastructure/base/config/market.config';
 import { MarketDataModule } from './modules/market-data/market-data.module';
+import { AlertModule } from './modules/alert/alert.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { MarketDataModule } from './modules/market-data/market-data.module';
     IngestionModule,
     AuthModule,
     MarketDataModule,
+    AlertModule,
     PreferencesModule,
     TemplateModule,
     NotificationModule,
