@@ -70,6 +70,8 @@ export class CustomExceptionsFilter implements ExceptionFilter {
             ['AssetNotFoundError', HttpStatus.NOT_FOUND],
             ['AlertNotFoundError', HttpStatus.NOT_FOUND],
             ['AlertLimitExceededError', HttpStatus.CONFLICT],
+            ['PortfolioNotFoundError', HttpStatus.NOT_FOUND],
+            ['InsufficientHoldingsError', HttpStatus.CONFLICT],
             ['EntityNotFound', HttpStatus.NOT_FOUND],
             ['ValidationError', HttpStatus.BAD_REQUEST],
             ['InvalidStateTransitionError', HttpStatus.CONFLICT],

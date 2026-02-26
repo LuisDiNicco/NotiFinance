@@ -6,6 +6,7 @@ import { PortfolioService } from '../../../../application/PortfolioService';
 import { TradeService } from '../../../../application/TradeService';
 import { Portfolio } from '../../../../domain/entities/Portfolio';
 import { Trade } from '../../../../domain/entities/Trade';
+import { Holding } from '../../../../domain/entities/Holding';
 import { CreatePortfolioRequest } from './request/CreatePortfolioRequest';
 import { RecordTradeRequest } from './request/RecordTradeRequest';
 
@@ -62,8 +63,13 @@ export class PortfolioController {
     @ApiOperation({ summary: 'Record trade in portfolio' })
     @ApiParam({ name: 'id' })
     @ApiResponse({ status: 201 })
-    public async recordTrade(@Param('id') id: string, @Body() payload: RecordTradeRequest): Promise<Trade> {
+    public async recordTrade(
+        @Req() req: AuthenticatedRequest,
+        @Param('id') id: string,
+        @Body() payload: RecordTradeRequest,
+    ): Promise<Trade> {
         const tradeInput = {
+            userId: req.user.sub,
             portfolioId: id,
             ticker: payload.ticker,
             tradeType: payload.tradeType,
@@ -84,5 +90,24 @@ export class PortfolioController {
     @ApiResponse({ status: 200 })
     public async getTradeHistory(@Param('id') id: string): Promise<Trade[]> {
         return this.tradeService.getTradeHistory(id);
+    }
+
+    @Get(':id/holdings')
+    @ApiOperation({ summary: 'Get calculated holdings for portfolio' })
+    @ApiParam({ name: 'id' })
+    @ApiResponse({ status: 200 })
+    public async getHoldings(@Req() req: AuthenticatedRequest, @Param('id') id: string): Promise<Holding[]> {
+        return this.portfolioService.getPortfolioHoldings(req.user.sub, id);
+    }
+
+    @Get(':id/distribution')
+    @ApiOperation({ summary: 'Get holdings distribution by ticker' })
+    @ApiParam({ name: 'id' })
+    @ApiResponse({ status: 200 })
+    public async getDistribution(
+        @Req() req: AuthenticatedRequest,
+        @Param('id') id: string,
+    ): Promise<Array<{ ticker: string; weight: number }>> {
+        return this.portfolioService.getPortfolioDistribution(req.user.sub, id);
     }
 }

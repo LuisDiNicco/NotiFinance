@@ -1,12 +1,12 @@
 # NotiFinance — Implementation Progress
 
 **Fecha:** 2026-02-26  
-**Scope actual:** Backend Fases B1 + B3 (B3 base completada)
+**Scope actual:** Backend Fases B1–B5 (B5 hardening portfolio en cierre)
 
 ## Estado general
 
 - Plan total: iniciado
-- Fase actual: **B5 (Portfolio & Watchlist)** en progreso
+- Fase actual: **B5 (Portfolio & Watchlist)** en cierre
 - Última fase cerrada: **B4**
 
 ## Fases completadas
@@ -199,8 +199,8 @@ Próximos entregables técnicos a implementar:
 1. `Watchlist` implementado (entidad/servicio/controller/repository + migración + tests).
 2. Base de `Portfolio` y `Trade` implementada (dominio + persistencia inicial + migración).
 3. Endpoints protegidos para portafolios/trades implementados (base CRUD + record trade).
-4. Cálculo inicial de holdings y valorización básica.
-5. Hardening de reglas de negocio de trades (SELL/FIFO/validaciones).
+4. Cálculo inicial de holdings y valorización básica. ✅
+5. Hardening de reglas de negocio de trades (SELL/FIFO/validaciones). ✅
 
 Detalle Watchlist ya implementado:
 
@@ -236,6 +236,26 @@ Detalle Portfolio base ya implementado:
   - `GET /portfolios/:id/trades`
 - Migración creada:
   - `1760000000007-CreatePortfolioTables.ts`
+
+Validación realizada:
+
+- ✅ `npm run build` (OK)
+- ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/portfolio/application/PortfolioService.spec.ts` (OK)
+- ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/portfolio.e2e-spec.ts` (OK)
+
+Detalle Portfolio hardening implementado:
+
+- Validaciones de negocio sobre trades:
+  - `TradeService` valida ownership de portfolio por usuario.
+  - para `SELL` se valida disponibilidad de cantidad usando cálculo FIFO.
+  - nuevos errores de dominio: `PortfolioNotFoundError`, `InsufficientHoldingsError`.
+- Cálculo de holdings y distribución:
+  - `HoldingsCalculator` implementa lotes FIFO y valorización por precio actual.
+  - `PortfolioService` expone cálculo de holdings y weights de distribución.
+  - nuevos endpoints: `GET /portfolios/:id/holdings` y `GET /portfolios/:id/distribution`.
+- Error handling global:
+  - mapeo de `PortfolioNotFoundError` => `404`
+  - mapeo de `InsufficientHoldingsError` => `409`
 
 Validación realizada:
 

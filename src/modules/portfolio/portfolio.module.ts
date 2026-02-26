@@ -5,6 +5,7 @@ import { PORTFOLIO_REPOSITORY } from './application/IPortfolioRepository';
 import { TRADE_REPOSITORY } from './application/ITradeRepository';
 import { PortfolioService } from './application/PortfolioService';
 import { TradeService } from './application/TradeService';
+import { HoldingsCalculator } from './application/HoldingsCalculator';
 import { PortfolioController } from './infrastructure/primary-adapters/http/controllers/PortfolioController';
 import { PortfolioEntity } from './infrastructure/secondary-adapters/database/entities/PortfolioEntity';
 import { TradeEntity } from './infrastructure/secondary-adapters/database/entities/TradeEntity';
@@ -17,6 +18,7 @@ import { TypeOrmTradeRepository } from './infrastructure/secondary-adapters/data
     providers: [
         PortfolioService,
         TradeService,
+        HoldingsCalculator,
         {
             provide: PORTFOLIO_REPOSITORY,
             useClass: TypeOrmPortfolioRepository,
