@@ -43,6 +43,46 @@ class EnvironmentVariables {
     @IsBoolean()
     @IsOptional()
     RUN_MIGRATIONS: boolean = true;
+
+    @IsString()
+    @IsOptional()
+    JWT_SECRET: string = 'change-me-access-secret';
+
+    @IsString()
+    @IsOptional()
+    JWT_EXPIRES_IN: string = '15m';
+
+    @IsString()
+    @IsOptional()
+    JWT_REFRESH_SECRET: string = 'change-me-refresh-secret';
+
+    @IsString()
+    @IsOptional()
+    JWT_REFRESH_EXPIRES_IN: string = '7d';
+
+    @IsString()
+    @IsOptional()
+    DOLAR_API_URL: string = 'https://dolarapi.com/v1';
+
+    @IsNumber()
+    @IsOptional()
+    MARKET_CHUNK_DELAY_MS: number = 300;
+
+    @IsNumber()
+    @IsOptional()
+    MARKET_QUOTE_RETRY_ATTEMPTS: number = 3;
+
+    @IsNumber()
+    @IsOptional()
+    MARKET_QUOTE_RETRY_BASE_DELAY_MS: number = 250;
+
+    @IsNumber()
+    @IsOptional()
+    MARKET_STATUS_CACHE_TTL_SECONDS: number = 30;
+
+    @IsNumber()
+    @IsOptional()
+    MARKET_TOP_MOVERS_CACHE_TTL_SECONDS: number = 60;
 }
 
 export function validate(config: Record<string, unknown>) {

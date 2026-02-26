@@ -63,8 +63,11 @@ export class CustomExceptionsFilter implements ExceptionFilter {
 
     private mapErrorToStatus(error: Error): number {
         const statusMap = new Map([
+            ['InvalidCredentialsError', HttpStatus.UNAUTHORIZED],
+            ['EmailAlreadyExistsError', HttpStatus.CONFLICT],
             ['PreferencesNotFoundError', HttpStatus.NOT_FOUND],
             ['TemplateNotFoundError', HttpStatus.NOT_FOUND],
+            ['AssetNotFoundError', HttpStatus.NOT_FOUND],
             ['EntityNotFound', HttpStatus.NOT_FOUND],
             ['ValidationError', HttpStatus.BAD_REQUEST],
             ['InvalidStateTransitionError', HttpStatus.CONFLICT],

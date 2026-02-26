@@ -18,6 +18,16 @@ export class RedisService {
         return result === 'OK';
     }
 
+    async get(key: string): Promise<string | null> {
+        return this.redisClient.get(key);
+    }
+
+    async set(key: string, value: string, expireInSeconds: number): Promise<void> {
+        await this.redisClient.set(key, value, {
+            EX: expireInSeconds,
+        });
+    }
+
     async ping(): Promise<boolean> {
         const result = await this.redisClient.ping();
         return result === 'PONG';

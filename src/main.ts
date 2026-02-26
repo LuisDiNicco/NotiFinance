@@ -43,8 +43,8 @@ async function bootstrap() {
 
   // Swagger API Documentation
   const config = new DocumentBuilder()
-    .setTitle('Notification Core API')
-    .setDescription('Notification management system with multi-channel delivery')
+    .setTitle('NotiFinance API')
+    .setDescription('Financial tracking and event-driven notification API')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

@@ -40,5 +40,6 @@ import { RabbitMqTopologyService } from './infrastructure/secondary-adapters/mes
             useClass: RabbitMQEventPublisher,
         },
     ],
+    exports: [EVENT_PUBLISHER],
 })
 export class IngestionModule { }

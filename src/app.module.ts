@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { validate } from './shared/infrastructure/base/config/env.validation';
 import { LoggerConfigModule } from './shared/infrastructure/base/logger/LoggerConfigModule';
 import { getDatabaseConfig } from './shared/infrastructure/base/config/database.config';
@@ -15,13 +16,17 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { HealthModule } from './shared/infrastructure/primary-adapters/http/health/health.module';
 import appConfig from './shared/infrastructure/base/config/app.config';
 import integrationsConfig from './shared/infrastructure/base/config/integrations.config';
+import authConfig from './shared/infrastructure/base/config/auth.config';
+import { AuthModule } from './modules/auth/auth.module';
+import marketConfig from './shared/infrastructure/base/config/market.config';
+import { MarketDataModule } from './modules/market-data/market-data.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       validate,
       isGlobal: true,
-      load: [appConfig, integrationsConfig],
+      load: [appConfig, integrationsConfig, authConfig, marketConfig],
     }),
     LoggerConfigModule,
     ThrottlerModule.forRootAsync({
@@ -33,6 +38,7 @@ import integrationsConfig from './shared/infrastructure/base/config/integrations
         },
       ],
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -40,6 +46,8 @@ import integrationsConfig from './shared/infrastructure/base/config/integrations
     }),
     RedisModule,
     IngestionModule,
+    AuthModule,
+    MarketDataModule,
     PreferencesModule,
     TemplateModule,
     NotificationModule,
