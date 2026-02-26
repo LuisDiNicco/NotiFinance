@@ -530,3 +530,82 @@ Validación de esta iteración:
 - ✅ `npm run lint` (OK)
 - ✅ `npm test -- --runInBand` (OK) — **20/20 suites**, **124/124 tests**
 - ✅ `npm run test:e2e` (OK) — **9/9 suites**, **40/40 tests**
+
+## Matriz final de cumplimiento (endpoint/evento)
+
+Base de comparación usada en esta matriz:
+
+- Contratos HTTP/WS detallados: `docs/04-supplementary-specs.md`.
+- Catálogo técnico de endpoints: `docs/02-technical-specification.md`.
+- Reglas de diseño/response/paginación: `.agent/development_rules.md`.
+
+### HTTP público
+
+| Contrato | Estado | Implementación actual |
+|---|---|---|
+| `POST /api/v1/auth/register` | ✅ | `AuthController` (`POST /auth/register`) + prefijo global `api/v1` |
+| `POST /api/v1/auth/login` | ✅ | `AuthController` (`POST /auth/login`) |
+| `POST /api/v1/auth/refresh` | ✅ | `AuthController` (`POST /auth/refresh`) |
+| `POST /api/v1/auth/demo` | ✅ | `AuthController` (`POST /auth/demo`) |
+| `GET /api/v1/market/dollar` | ✅ | `MarketController.getDollarQuotes()` devuelve `{ data, updatedAt }` |
+| `GET /api/v1/market/dollar/history/:type` | ✅ | `MarketController.getDollarHistory()` devuelve `{ type, data[] }` |
+| `GET /api/v1/market/risk` | ✅ | `MarketController.getCountryRisk()` devuelve `{ value, changePct, previousValue, timestamp }` |
+| `GET /api/v1/market/summary` | ✅ | `MarketController.getMarketSummary()` con shape contractual normalizado |
+| `GET /api/v1/market/status` | ✅ | `MarketController.getMarketStatus()` devuelve `isOpen/currentPhase/closesAt/nextOpen/timezone` |
+| `GET /api/v1/assets` | ✅ | `AssetController.getAssets()` devuelve `{ data, meta }` |
+| `GET /api/v1/search` | ✅ | `SearchController.search()` devuelve `{ data }` |
+
+### HTTP autenticado
+
+| Contrato | Estado | Implementación actual |
+|---|---|---|
+| `GET /api/v1/watchlist` | ✅ | `WatchlistController.getWatchlist()` devuelve `{ data }` |
+| `POST /api/v1/watchlist` | ✅ | `WatchlistController.addToWatchlist()` (`{ ticker }` en body) |
+| `DELETE /api/v1/watchlist/:ticker` | ✅ | `WatchlistController.removeFromWatchlist()` con `204` |
+| `GET /api/v1/portfolios` | ✅ | `PortfolioController.getUserPortfolios()` devuelve `{ data }` |
+| `GET /api/v1/portfolios/:id` | ✅ | `PortfolioController.getPortfolio()` |
+| `GET /api/v1/portfolios/:id/holdings` | ✅ | `PortfolioController.getHoldings()` |
+| `GET /api/v1/portfolios/:id/distribution` | ✅ | `PortfolioController.getDistribution()` (`byAsset/byType/bySector/byCurrency`) |
+| `GET /api/v1/portfolios/:id/performance` | ✅ | `PortfolioController.getPerformance()` |
+| `POST /api/v1/portfolios/:id/trades` | ✅ | `PortfolioController.recordTrade()` |
+| `GET /api/v1/portfolios/:id/trades` | ✅ | `PortfolioController.getTradeHistory()` |
+| `GET /api/v1/alerts` | ✅ | `AlertController.getUserAlerts()` devuelve `{ data, meta }` |
+| `GET /api/v1/alerts/:id` | ✅ | `AlertController.getAlertById()` |
+| `POST /api/v1/alerts` | ✅ | `AlertController.createAlert()` |
+| `PATCH /api/v1/alerts/:id` | ✅ | `AlertController.updateAlert()` |
+| `PATCH /api/v1/alerts/:id/status` | ✅ | `AlertController.changeStatus()` |
+| `DELETE /api/v1/alerts/:id` | ✅ | `AlertController.deleteAlert()` |
+| `GET /api/v1/notifications` | ✅ | `NotificationController.getNotifications()` devuelve `{ data, meta }` |
+| `GET /api/v1/notifications/count` | ✅ | `NotificationController.getUnreadCount()` devuelve `{ unreadCount }` |
+| `PATCH /api/v1/notifications/:id/read` | ✅ | `NotificationController.markAsRead()` devuelve `{ id, isRead, readAt }` |
+| `PATCH /api/v1/notifications/read-all` | ✅ | `NotificationController.markAllAsRead()` devuelve `{ updatedCount }` |
+| `DELETE /api/v1/notifications/:id` | ✅ | `NotificationController.deleteNotification()` |
+| `GET /api/v1/preferences` | ✅ | `PreferencesController.getPreferences()` |
+| `PUT /api/v1/preferences` | ✅ | `PreferencesController.updatePreferences()` |
+
+### WebSocket — notifications (`/notifications`)
+
+| Contrato | Estado | Implementación actual |
+|---|---|---|
+| Handshake JWT requerido | ✅ | `NotificationGateway.handleConnection()` valida token y `sub` |
+| `subscribe` (client → server) | ✅ | `@SubscribeMessage('subscribe')` soportado |
+| `notification:new` (server → client) | ✅ | Payload `{ id, title, body, type, metadata, createdAt }` |
+| `notification:count` (server → client) | ✅ | Payload `{ unreadCount }` |
+| Room privada por usuario | ✅ | Convención `user:{userId}` |
+
+### WebSocket — market (`/market`)
+
+| Contrato | Estado | Implementación actual |
+|---|---|---|
+| `join:room` | ✅ | `MarketGateway.handleJoinRoom()` con validación prefijo `market:` |
+| `leave:room` | ✅ | `MarketGateway.handleLeaveRoom()` |
+| `market:dollar` | ✅ | Payload `{ quotes: [{type,buyPrice,sellPrice}], timestamp }` |
+| `market:risk` | ✅ | Payload `{ value, changePct, timestamp }` |
+| `market:quote` | ✅ | Payload `{ ticker, priceArs, changePct, volume, timestamp }` |
+| `market:status` | ✅ | Emitido por jobs con `{ isOpen, phase }` |
+
+### Observaciones de consistencia documental
+
+- `docs/02-technical-specification.md` (sección WebSocket 7.1) usa nombres de campos legacy para `market:dollar/market:risk/market:quote` (`buy/sell/updatedAt`, `price`, etc.).
+- `docs/04-supplementary-specs.md` define el contrato detallado vigente (`buyPrice/sellPrice/timestamp`, `priceArs`, y evento `market:status`), que es el contrato que se implementó y validó.
+- Con esta base, el estado de cumplimiento contractual operativo queda en **100%** para endpoints/eventos del backend actual.
