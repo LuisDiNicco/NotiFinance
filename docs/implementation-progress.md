@@ -1,13 +1,13 @@
 # NotiFinance — Implementation Progress
 
 **Fecha:** 2026-02-26  
-**Scope actual:** Backend Fases B1–B6 (B6 migration & integration completada)
+**Scope actual:** Backend Fases B1–B7 (B7 Demo Mode completada)
 
 ## Estado general
 
 - Plan total: iniciado
-- Fase actual: **B6 (EventType Migration & Integration)** completada
-- Última fase cerrada: **B6**
+- Fase actual: **B7 (Demo Mode & Seeds)** completada
+- Última fase cerrada: **B7**
 
 ## Fases completadas
 
@@ -289,6 +289,31 @@ Validación realizada:
 - ✅ `npm run build` (OK)
 - ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/ingestion/application/EventIngestionService.spec.ts test/unit/modules/notification/application/services/DispatcherService.spec.ts test/unit/modules/preferences/application/PreferencesService.spec.ts test/unit/modules/preferences/domain/entities/UserPreference.spec.ts` (OK)
 - ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/ingestion.e2e-spec.ts test/event-flow.e2e-spec.ts test/app.e2e-spec.ts test/notification.e2e-spec.ts` (OK)
+
+### ✅ B7 — Demo Mode & Seeds
+
+Implementado en backend:
+
+- Nuevo `DemoSeedService` en auth:
+  - crea usuario demo
+  - crea portfolio demo con posiciones iniciales (acciones, CEDEARs y bonos)
+  - crea watchlist demo con 10 activos
+  - crea 3 alertas demo (precio, dólar, riesgo)
+  - crea 5 notificaciones de ejemplo
+- `AuthService.createDemoSession()` actualizado:
+  - delega seed al `DemoSeedService`
+  - retorna token de acceso demo con TTL 24h (sin refresh)
+- Limpieza automática de demos:
+  - nuevo `DemoUsersCleanupJob` con `@Cron('0 4 * * *')`
+  - elimina usuarios demo con más de 24h vía `deleteExpiredDemoUsers`
+- Wiring de módulo:
+  - `AuthModule` integra dependencias de portfolio/watchlist/alert/notification/market para seeding.
+
+Validación realizada:
+
+- ✅ `npx nest build` (OK) *(fallback porque Docker daemon no estaba activo para `npm run build`)*
+- ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/auth/application/AuthService.spec.ts test/unit/modules/auth/application/DemoSeedService.spec.ts test/unit/modules/auth/application/DemoUsersCleanupJob.spec.ts` (OK)
+- ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/auth.e2e-spec.ts` (OK)
 
 ## Notas de implementación
 

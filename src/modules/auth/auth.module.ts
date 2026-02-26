@@ -9,11 +9,23 @@ import { UserEntity } from './infrastructure/secondary-adapters/database/entitie
 import { UserRepository } from './infrastructure/secondary-adapters/database/repositories/UserRepository';
 import { AuthController } from './infrastructure/primary-adapters/http/controllers/AuthController';
 import { JwtStrategy } from './infrastructure/secondary-adapters/security/JwtStrategy';
+import { DemoSeedService } from './application/DemoSeedService';
+import { DemoUsersCleanupJob } from './infrastructure/primary-adapters/jobs/DemoUsersCleanupJob';
+import { PortfolioModule } from '../portfolio/portfolio.module';
+import { WatchlistModule } from '../watchlist/watchlist.module';
+import { AlertModule } from '../alert/alert.module';
+import { NotificationModule } from '../notification/notification.module';
+import { MarketDataModule } from '../market-data/market-data.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([UserEntity]),
         PassportModule,
+        PortfolioModule,
+        WatchlistModule,
+        AlertModule,
+        NotificationModule,
+        MarketDataModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
@@ -40,6 +52,8 @@ import { JwtStrategy } from './infrastructure/secondary-adapters/security/JwtStr
     controllers: [AuthController],
     providers: [
         AuthService,
+        DemoSeedService,
+        DemoUsersCleanupJob,
         JwtStrategy,
         {
             provide: USER_REPOSITORY,

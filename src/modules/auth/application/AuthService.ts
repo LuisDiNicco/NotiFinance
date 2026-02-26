@@ -2,11 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
 import { USER_REPOSITORY, type IUserRepository } from './IUserRepository';
 import { User } from '../domain/entities/User';
 import { EmailAlreadyExistsError } from '../domain/errors/EmailAlreadyExistsError';
 import { InvalidCredentialsError } from '../domain/errors/InvalidCredentialsError';
+import { DemoSeedService } from './DemoSeedService';
 
 interface TokenPayload {
     sub: string;
@@ -28,6 +28,7 @@ export class AuthService {
         private readonly userRepository: IUserRepository,
         private readonly jwtService: JwtService,
         private readonly configService: ConfigService,
+        private readonly demoSeedService: DemoSeedService,
     ) { }
 
     public async register(email: string, password: string, displayName: string): Promise<{ user: User; tokens: AuthTokens; }> {
@@ -84,15 +85,11 @@ export class AuthService {
     }
 
     public async createDemoSession(): Promise<{ user: User; tokens: AuthTokens; }> {
-        const demoEmail = `demo-${Date.now()}-${randomUUID()}@notifinance.local`;
-        const demoPasswordHash = await bcrypt.hash(randomUUID(), AuthService.SALT_ROUNDS);
-
-        const demoUser = new User(demoEmail, demoPasswordHash, 'Usuario Demo', true);
-        const savedUser = await this.userRepository.save(demoUser);
+        const savedUser = await this.demoSeedService.createDemoUserWithSeedData();
 
         return {
             user: savedUser,
-            tokens: this.generateTokens(savedUser),
+            tokens: this.generateDemoTokens(savedUser),
         };
     }
 
@@ -154,5 +151,23 @@ export class AuthService {
             default:
                 return 604800;
         }
+    }
+
+    private generateDemoTokens(user: User): AuthTokens {
+        if (!user.id) {
+            throw new Error('User id is required to generate tokens');
+        }
+
+        const payload: TokenPayload = {
+            sub: user.id,
+            email: user.email,
+            isDemo: user.isDemo,
+        };
+
+        return {
+            accessToken: this.jwtService.sign(payload, {
+                expiresIn: 24 * 60 * 60,
+            }),
+        };
     }
 }

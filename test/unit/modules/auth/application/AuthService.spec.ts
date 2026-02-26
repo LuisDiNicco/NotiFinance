@@ -9,11 +9,13 @@ import {
 import { User } from '../../../../../src/modules/auth/domain/entities/User';
 import { EmailAlreadyExistsError } from '../../../../../src/modules/auth/domain/errors/EmailAlreadyExistsError';
 import { InvalidCredentialsError } from '../../../../../src/modules/auth/domain/errors/InvalidCredentialsError';
+import { DemoSeedService } from '../../../../../src/modules/auth/application/DemoSeedService';
 
 describe('AuthService', () => {
     let service: AuthService;
     let repository: jest.Mocked<IUserRepository>;
     let jwtService: jest.Mocked<JwtService>;
+    let demoSeedService: jest.Mocked<DemoSeedService>;
 
     beforeEach(async () => {
         repository = {
@@ -27,6 +29,10 @@ describe('AuthService', () => {
             sign: jest.fn().mockImplementation((payload: object) => JSON.stringify(payload)),
             verifyAsync: jest.fn(),
         } as unknown as jest.Mocked<JwtService>;
+
+        demoSeedService = {
+            createDemoUserWithSeedData: jest.fn(),
+        } as unknown as jest.Mocked<DemoSeedService>;
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -50,6 +56,10 @@ describe('AuthService', () => {
                             return map[key] ?? defaultValue;
                         }),
                     },
+                },
+                {
+                    provide: DemoSeedService,
+                    useValue: demoSeedService,
                 },
             ],
         }).compile();
@@ -107,5 +117,26 @@ describe('AuthService', () => {
         expect(result.accessToken).toBeDefined();
         expect(result.refreshToken).toBeDefined();
         expect(repository.findById).toHaveBeenCalledWith('user-1');
+    });
+
+    it('creates demo session with 24h access token and no refresh token', async () => {
+        const demoUser = new User('demo@example.com', 'hash', 'Usuario Demo', true);
+        demoUser.id = 'demo-user-1';
+        demoSeedService.createDemoUserWithSeedData.mockResolvedValue(demoUser);
+
+        const result = await service.createDemoSession();
+
+        expect(demoSeedService.createDemoUserWithSeedData).toHaveBeenCalledTimes(1);
+        expect(result.user.id).toBe('demo-user-1');
+        expect(result.tokens.accessToken).toBeDefined();
+        expect(result.tokens.refreshToken).toBeUndefined();
+        expect(jwtService.sign).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sub: 'demo-user-1',
+                email: 'demo@example.com',
+                isDemo: true,
+            }),
+            expect.objectContaining({ expiresIn: 86400 }),
+        );
     });
 });
