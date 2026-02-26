@@ -22,6 +22,7 @@ import marketConfig from './shared/infrastructure/base/config/market.config';
 import { MarketDataModule } from './modules/market-data/market-data.module';
 import { AlertModule } from './modules/alert/alert.module';
 import { WatchlistModule } from './modules/watchlist/watchlist.module';
+import { PortfolioModule } from './modules/portfolio/portfolio.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { WatchlistModule } from './modules/watchlist/watchlist.module';
     MarketDataModule,
     AlertModule,
     WatchlistModule,
+    PortfolioModule,
     PreferencesModule,
     TemplateModule,
     NotificationModule,

@@ -197,10 +197,10 @@ Validación realizada:
 Próximos entregables técnicos a implementar:
 
 1. `Watchlist` implementado (entidad/servicio/controller/repository + migración + tests).
-2. Base de `Portfolio` y `Trade` (dominio + persistencia inicial).
-3. Endpoints protegidos para portafolios/trades.
+2. Base de `Portfolio` y `Trade` implementada (dominio + persistencia inicial + migración).
+3. Endpoints protegidos para portafolios/trades implementados (base CRUD + record trade).
 4. Cálculo inicial de holdings y valorización básica.
-5. Tests unit/e2e focalizados de portfolio.
+5. Hardening de reglas de negocio de trades (SELL/FIFO/validaciones).
 
 Detalle Watchlist ya implementado:
 
@@ -220,6 +220,28 @@ Validación realizada:
 - ✅ `npm run build` (OK)
 - ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/watchlist/application/WatchlistService.spec.ts` (OK)
 - ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/watchlist.e2e-spec.ts` (OK)
+
+Detalle Portfolio base ya implementado:
+
+- Nuevo módulo `portfolio`:
+  - Domain: `Portfolio`, `Trade`, `TradeType`
+  - Application: `PortfolioService`, `TradeService`, `IPortfolioRepository`, `ITradeRepository`
+  - Infrastructure: entidades/mappers/repos TypeORM para portfolio y trades, `PortfolioController`
+- Endpoints autenticados:
+  - `POST /portfolios`
+  - `GET /portfolios`
+  - `GET /portfolios/:id`
+  - `DELETE /portfolios/:id`
+  - `POST /portfolios/:id/trades`
+  - `GET /portfolios/:id/trades`
+- Migración creada:
+  - `1760000000007-CreatePortfolioTables.ts`
+
+Validación realizada:
+
+- ✅ `npm run build` (OK)
+- ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/portfolio/application/PortfolioService.spec.ts` (OK)
+- ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/portfolio.e2e-spec.ts` (OK)
 
 ## Notas de implementación
 
