@@ -3,7 +3,7 @@ import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { Logger } from 'nestjs-pino';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { CustomExceptionsFilter } from './shared/infrastructure/primary-adapters/http/filters/CustomExceptionsFilter';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
@@ -42,6 +42,10 @@ async function bootstrap() {
   // Global exception filter
   app.useGlobalFilters(new CustomExceptionsFilter());
   app.useGlobalInterceptors(new RequestLoggingInterceptor());
+
+  app.setGlobalPrefix('api/v1', {
+    exclude: [{ path: 'health', method: RequestMethod.GET }],
+  });
 
   // Swagger API Documentation
   const config = new DocumentBuilder()

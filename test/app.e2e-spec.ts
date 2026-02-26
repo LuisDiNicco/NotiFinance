@@ -44,6 +44,7 @@ describe('Templates endpoint (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -58,9 +59,9 @@ describe('Templates endpoint (e2e)', () => {
     await app.close();
   });
 
-  it('/templates (GET) returns paginated shape', async () => {
+  it('/api/v1/templates (GET) returns paginated shape', async () => {
     const response = await request(app.getHttpServer())
-      .get('/templates?page=1&limit=10')
+      .get('/api/v1/templates?page=1&limit=10')
       .expect(200);
 
     expect(response.body).toMatchObject({
@@ -71,9 +72,9 @@ describe('Templates endpoint (e2e)', () => {
     expect(Array.isArray(response.body.data)).toBe(true);
   });
 
-  it('/templates (POST) stores template', async () => {
+  it('/api/v1/templates (POST) stores template', async () => {
     const response = await request(app.getHttpServer())
-      .post('/templates')
+      .post('/api/v1/templates')
       .send({
         name: 'Price Alert Template',
         eventType: 'alert.price.above',
@@ -85,9 +86,9 @@ describe('Templates endpoint (e2e)', () => {
     expect(response.body.id).toBe('tpl-1');
   });
 
-  it('/templates/test-compile (POST) compiles context variables', async () => {
+  it('/api/v1/templates/test-compile (POST) compiles context variables', async () => {
     const response = await request(app.getHttpServer())
-      .post('/templates/test-compile')
+      .post('/api/v1/templates/test-compile')
       .send({
         eventType: 'alert.price.above',
         context: {

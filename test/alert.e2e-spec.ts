@@ -58,6 +58,7 @@ describe('Alert endpoints (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -72,9 +73,9 @@ describe('Alert endpoints (e2e)', () => {
     await app.close();
   });
 
-  it('/alerts (POST)', async () => {
+  it('/api/v1/alerts (POST)', async () => {
     const response = await request(app.getHttpServer())
-      .post('/alerts')
+      .post('/api/v1/alerts')
       .send({
         assetId: '11111111-1111-4111-8111-111111111111',
         alertType: 'PRICE',
@@ -88,30 +89,30 @@ describe('Alert endpoints (e2e)', () => {
     expect(response.body.id).toBe(baseAlert.id);
   });
 
-  it('/alerts (GET)', async () => {
+  it('/api/v1/alerts (GET)', async () => {
     const response = await request(app.getHttpServer())
-      .get('/alerts')
+      .get('/api/v1/alerts')
       .expect(200);
     expect(response.body).toHaveLength(1);
   });
 
-  it('/alerts/:id (PATCH)', async () => {
+  it('/api/v1/alerts/:id (PATCH)', async () => {
     await request(app.getHttpServer())
-      .patch(`/alerts/${baseAlert.id}`)
+      .patch(`/api/v1/alerts/${baseAlert.id}`)
       .send({ threshold: 110 })
       .expect(200);
   });
 
-  it('/alerts/:id/status (PATCH)', async () => {
+  it('/api/v1/alerts/:id/status (PATCH)', async () => {
     await request(app.getHttpServer())
-      .patch(`/alerts/${baseAlert.id}/status`)
+      .patch(`/api/v1/alerts/${baseAlert.id}/status`)
       .send({ status: 'PAUSED' })
       .expect(200);
   });
 
-  it('/alerts/:id (DELETE)', async () => {
+  it('/api/v1/alerts/:id (DELETE)', async () => {
     await request(app.getHttpServer())
-      .delete(`/alerts/${baseAlert.id}`)
+      .delete(`/api/v1/alerts/${baseAlert.id}`)
       .expect(200);
   });
 });

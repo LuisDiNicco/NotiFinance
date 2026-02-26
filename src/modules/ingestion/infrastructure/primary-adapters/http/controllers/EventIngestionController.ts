@@ -5,14 +5,12 @@ import {
   HttpStatus,
   Post,
   Req,
-  UseInterceptors,
   Logger,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { EventPayloadRequest } from './request/EventPayloadRequest';
 import { EventIngestionService } from '../../../../application/EventIngestionService';
-import { IdempotencyInterceptor } from '../interceptors/IdempotencyInterceptor';
 
 @ApiTags('Events')
 @Controller('events')
@@ -23,7 +21,6 @@ export class EventIngestionController {
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
-  @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({
     summary:
       'Ingest a business event and publish it for asynchronous processing',

@@ -6,6 +6,8 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { verify } from 'jsonwebtoken';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -18,13 +20,63 @@ export class NotificationGateway
 
   private readonly logger = new Logger(NotificationGateway.name);
 
-  handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+  constructor(private readonly configService: ConfigService) {}
 
-    client.on('join', (userId: string) => {
-      void client.join(`user-${userId}`);
-      this.logger.log(`Client ${client.id} joined room user-${userId}`);
-    });
+  private extractToken(client: Socket): string | null {
+    const authPayload = client.handshake.auth as
+      | Record<string, unknown>
+      | undefined;
+    const authToken = authPayload?.['token'];
+    if (typeof authToken === 'string' && authToken.length > 0) {
+      return authToken;
+    }
+
+    const headerAuthorization = client.handshake.headers['authorization'];
+    if (typeof headerAuthorization !== 'string') {
+      return null;
+    }
+
+    const match = headerAuthorization.match(/^Bearer\s+(.+)$/i);
+    return match?.[1] ?? null;
+  }
+
+  private resolveUserIdFromToken(token: string): string | null {
+    const secret = this.configService.get<string>(
+      'auth.jwtSecret',
+      'change-me-access-secret',
+    );
+
+    try {
+      const decoded = verify(token, secret);
+      if (typeof decoded === 'string') {
+        return null;
+      }
+
+      return typeof decoded.sub === 'string' ? decoded.sub : null;
+    } catch {
+      return null;
+    }
+  }
+
+  handleConnection(client: Socket) {
+    const token = this.extractToken(client);
+    if (!token) {
+      this.logger.warn(`Client ${client.id} disconnected: missing token`);
+      client.disconnect(true);
+      return;
+    }
+
+    const userId = this.resolveUserIdFromToken(token);
+    if (!userId) {
+      this.logger.warn(`Client ${client.id} disconnected: invalid token`);
+      client.disconnect(true);
+      return;
+    }
+
+    void client.join(`user-${userId}`);
+    this.logger.log(
+      `Client ${client.id} connected and joined room user-${userId}`,
+    );
   }
 
   handleDisconnect(client: Socket) {

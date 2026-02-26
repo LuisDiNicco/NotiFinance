@@ -46,6 +46,7 @@ describe('Watchlist endpoints (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -61,23 +62,25 @@ describe('Watchlist endpoints (e2e)', () => {
     await app.close();
   });
 
-  it('/watchlist (GET)', async () => {
+  it('/api/v1/watchlist (GET)', async () => {
     const response = await request(app.getHttpServer())
-      .get('/watchlist')
+      .get('/api/v1/watchlist')
       .expect(200);
     expect(response.body).toHaveLength(1);
   });
 
-  it('/watchlist (POST)', async () => {
+  it('/api/v1/watchlist (POST)', async () => {
     const response = await request(app.getHttpServer())
-      .post('/watchlist')
+      .post('/api/v1/watchlist')
       .send({ ticker: 'GGAL' })
       .expect(201);
 
     expect(response.body.id).toBe(item.id);
   });
 
-  it('/watchlist/:ticker (DELETE)', async () => {
-    await request(app.getHttpServer()).delete('/watchlist/GGAL').expect(200);
+  it('/api/v1/watchlist/:ticker (DELETE)', async () => {
+    await request(app.getHttpServer())
+      .delete('/api/v1/watchlist/GGAL')
+      .expect(200);
   });
 });

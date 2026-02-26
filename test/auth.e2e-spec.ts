@@ -45,6 +45,7 @@ describe('Auth endpoints (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -60,9 +61,9 @@ describe('Auth endpoints (e2e)', () => {
     await app.close();
   });
 
-  it('/auth/register (POST) validates and returns auth payload', async () => {
+  it('/api/v1/auth/register (POST) validates and returns auth payload', async () => {
     const response = await request(app.getHttpServer())
-      .post('/auth/register')
+      .post('/api/v1/auth/register')
       .send({
         email: 'user@example.com',
         password: 'Password123!',
@@ -74,9 +75,9 @@ describe('Auth endpoints (e2e)', () => {
     expect(response.body.accessToken).toBe('access-token');
   });
 
-  it('/auth/login (POST) returns auth payload', async () => {
+  it('/api/v1/auth/login (POST) returns auth payload', async () => {
     const response = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({
         email: 'user@example.com',
         password: 'Password123!',
@@ -86,18 +87,18 @@ describe('Auth endpoints (e2e)', () => {
     expect(response.body.user.id).toBe('user-1');
   });
 
-  it('/auth/refresh (POST) returns refreshed tokens', async () => {
+  it('/api/v1/auth/refresh (POST) returns refreshed tokens', async () => {
     const response = await request(app.getHttpServer())
-      .post('/auth/refresh')
+      .post('/api/v1/auth/refresh')
       .send({ refreshToken: 'token-value-with-min-length-20' })
       .expect(200);
 
     expect(response.body.accessToken).toBe('new-access-token');
   });
 
-  it('/auth/demo (POST) creates demo session', async () => {
+  it('/api/v1/auth/demo (POST) creates demo session', async () => {
     const response = await request(app.getHttpServer())
-      .post('/auth/demo')
+      .post('/api/v1/auth/demo')
       .expect(201);
 
     expect(response.body.user.isDemo).toBe(true);

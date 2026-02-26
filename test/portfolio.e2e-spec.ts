@@ -84,6 +84,7 @@ describe('Portfolio endpoints (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -98,25 +99,25 @@ describe('Portfolio endpoints (e2e)', () => {
     await app.close();
   });
 
-  it('/portfolios (POST)', async () => {
+  it('/api/v1/portfolios (POST)', async () => {
     const response = await request(app.getHttpServer())
-      .post('/portfolios')
+      .post('/api/v1/portfolios')
       .send({ name: 'Main Portfolio' })
       .expect(201);
 
     expect(response.body.id).toBe(portfolio.id);
   });
 
-  it('/portfolios (GET)', async () => {
+  it('/api/v1/portfolios (GET)', async () => {
     const response = await request(app.getHttpServer())
-      .get('/portfolios')
+      .get('/api/v1/portfolios')
       .expect(200);
     expect(response.body).toHaveLength(1);
   });
 
-  it('/portfolios/:id/trades (POST)', async () => {
+  it('/api/v1/portfolios/:id/trades (POST)', async () => {
     const response = await request(app.getHttpServer())
-      .post(`/portfolios/${portfolio.id}/trades`)
+      .post(`/api/v1/portfolios/${portfolio.id}/trades`)
       .send({
         ticker: 'GGAL',
         tradeType: 'BUY',
@@ -129,18 +130,18 @@ describe('Portfolio endpoints (e2e)', () => {
     expect(response.body.id).toBe(trade.id);
   });
 
-  it('/portfolios/:id/holdings (GET)', async () => {
+  it('/api/v1/portfolios/:id/holdings (GET)', async () => {
     const response = await request(app.getHttpServer())
-      .get(`/portfolios/${portfolio.id}/holdings`)
+      .get(`/api/v1/portfolios/${portfolio.id}/holdings`)
       .expect(200);
 
     expect(response.body).toHaveLength(1);
     expect(response.body[0].ticker).toBe('GGAL');
   });
 
-  it('/portfolios/:id/distribution (GET)', async () => {
+  it('/api/v1/portfolios/:id/distribution (GET)', async () => {
     const response = await request(app.getHttpServer())
-      .get(`/portfolios/${portfolio.id}/distribution`)
+      .get(`/api/v1/portfolios/${portfolio.id}/distribution`)
       .expect(200);
 
     expect(response.body).toHaveLength(1);

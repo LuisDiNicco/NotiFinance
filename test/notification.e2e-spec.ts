@@ -54,6 +54,7 @@ describe('Notification endpoints (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -69,36 +70,36 @@ describe('Notification endpoints (e2e)', () => {
     await app.close();
   });
 
-  it('/notifications (GET)', async () => {
+  it('/api/v1/notifications (GET)', async () => {
     const response = await request(app.getHttpServer())
-      .get('/notifications?unreadOnly=true&page=1&limit=20')
+      .get('/api/v1/notifications?unreadOnly=true&page=1&limit=20')
       .expect(200);
 
     expect(response.body).toHaveLength(1);
   });
 
-  it('/notifications/count (GET)', async () => {
+  it('/api/v1/notifications/count (GET)', async () => {
     const response = await request(app.getHttpServer())
-      .get('/notifications/count')
+      .get('/api/v1/notifications/count')
       .expect(200);
     expect(response.body.unread).toBe(1);
   });
 
-  it('/notifications/:id/read (PATCH)', async () => {
+  it('/api/v1/notifications/:id/read (PATCH)', async () => {
     await request(app.getHttpServer())
-      .patch(`/notifications/${notification.id}/read`)
+      .patch(`/api/v1/notifications/${notification.id}/read`)
       .expect(200);
   });
 
-  it('/notifications/read-all (PATCH)', async () => {
+  it('/api/v1/notifications/read-all (PATCH)', async () => {
     await request(app.getHttpServer())
-      .patch('/notifications/read-all')
+      .patch('/api/v1/notifications/read-all')
       .expect(200);
   });
 
-  it('/notifications/:id (DELETE)', async () => {
+  it('/api/v1/notifications/:id (DELETE)', async () => {
     await request(app.getHttpServer())
-      .delete(`/notifications/${notification.id}`)
+      .delete(`/api/v1/notifications/${notification.id}`)
       .expect(200);
   });
 });

@@ -192,7 +192,7 @@ Validación realizada:
 - ✅ `npx jest --config ./test/jest-unit.json --runInBand --coverage=false test/unit/modules/notification/application/services/DispatcherService.spec.ts` (OK)
 - ✅ `npx jest --config ./test/jest-e2e.json --runInBand --coverage=false test/notification.e2e-spec.ts` (OK)
 
-### ⏳ B5 — Portfolio & Watchlist (en progreso)
+### ✅ B5 — Portfolio & Watchlist (completado)
 
 Próximos entregables técnicos a implementar:
 
@@ -383,9 +383,82 @@ Estado de calidad consolidado tras hardening final:
   - suites: **9/9 pass**
   - tests: **38/38 pass**
 
+- ✅ Validación final adicional de release candidate:
+  - `npm test` (OK)
+  - suites: **20/20 pass**
+  - tests: **124/124 pass**
+
 Hardening aplicado en cierre:
 
 - Correcciones de tipado seguro y `no-unsafe-*` en consumers/interceptor de broker y capa HTTP.
 - Eliminación de deuda `unbound-method`, `require-await`, `await-thenable`, `no-base-to-string` en módulos backend.
 - Ajuste de reglas de ESLint para tests (`test/**/*.ts`) para reducir ruido de tipado dinámico propio de mocks/supertest.
 - Reforzadas pruebas unitarias en template rendering para cubrir ramas de serialización segura.
+
+## Última revisión de cumplimiento backend (code review final)
+
+**Fecha:** 2026-02-26  
+**Resultado:** backend funcionalmente cerrado para alcance B1–B9, con **3 desvíos de contrato/diseño** a corregir para conformidad estricta con la especificación complementaria.
+
+### Cumplimientos confirmados
+
+- Seguridad y robustez:
+  - lockout de login por intentos fallidos con Redis y mapeo HTTP 429.
+  - throttling diferenciado público/autenticado.
+  - validación global estricta, CORS y headers de seguridad.
+- Integración de módulos planificados:
+  - auth, market-data, alert, notification, preferences, portfolio, watchlist.
+  - jobs de mercado + publicación de eventos + consumo por colas dedicadas.
+- Flujo event-driven:
+  - market `market.*` → evaluación alertas → dispatch notificaciones `alert.*`.
+- Calidad:
+  - lint limpio y suites unit/e2e en verde en el último cierre.
+
+### Desvíos detectados (a corregir)
+
+1. **Versionado de API no alineado con spec**
+   - La especificación define rutas bajo `/api/v1/...`.
+   - Implementación actual expone rutas sin prefijo global (`/auth`, `/market`, `/assets`, etc.).
+
+2. **Contrato HTTP de market parcialmente diferente al documento complementario**
+   - `GET /market/dollar` devuelve array plano, no objeto `{ data, updatedAt }`.
+   - `GET /market/dollar/history` devuelve array plano, no `{ type, data }`.
+   - `GET /market/summary` implementa estructura enriquecida propia (`topMovers`, `marketStatus`) que no matchea 1:1 el ejemplo contractual (`merval`, bloques de dólar por clave, etc.).
+
+3. **WebSocket de notificaciones sin validación de identidad al suscribirse**
+   - El cliente se une a rooms por `join(userId)` sin comprobación de JWT en handshake.
+   - Riesgo: suscripción a room ajeno si un cliente envía otro `userId`.
+
+### Recomendación de cierre
+
+- Estado actual: **release candidate técnico válido para backend interno**.
+- Para conformidad estricta con documentación externa/contrato público:
+  1) aplicar prefijo global `/api/v1`,
+  2) normalizar response DTOs de market según spec,
+  3) asegurar autenticación/autorización en gateway WS de notificaciones.
+
+## Iteración de remediación final (2026-02-26)
+
+**Estado:** ✅ desvíos de la revisión final corregidos y revalidados.
+
+Correcciones aplicadas en esta iteración:
+
+- API versionada global:
+  - bootstrap con `app.setGlobalPrefix('api/v1')` (excepto `GET /health`).
+- Contratos `market` alineados:
+  - `GET /market/dollar` → `{ data, updatedAt }`.
+  - `GET /market/dollar/history/:type` y `/market/dollar/history?type=...` → `{ type, data[] }`.
+  - `GET /market/risk` → incluye `previousValue` y `timestamp` serializado.
+  - `GET /market/summary` → estructura contractual (`merval`, `dollar` por clave, `risk`, `marketStatus` con `isOpen/closesAt/nextOpen`).
+- Ingestion HTTP:
+  - removido interceptor de idempotencia en controller para evitar comportamiento fuera de contrato en `POST /events`.
+- WebSocket notifications:
+  - validación de JWT en handshake.
+  - room join automático por `sub` del token (sin `join(userId)` arbitrario).
+- E2E adaptados a `/api/v1` y mocks sincronizados con métodos nuevos de `MarketDataService`.
+
+Validación de cierre de iteración:
+
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test:e2e` (OK) — **9/9 suites**, **38/38 tests**
+- ✅ `npm test` (OK) — **20/20 suites**, **124/124 tests**
