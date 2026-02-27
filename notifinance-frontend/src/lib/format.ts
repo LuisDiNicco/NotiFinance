@@ -42,3 +42,12 @@ export function formatTimeAgo(value: string | Date) {
   const date = value instanceof Date ? value : parseISO(value);
   return formatDistanceToNowStrict(date, { addSuffix: true, locale: es });
 }
+
+const numberFormatter = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+export function formatNumber(value: number) {
+  return numberFormatter.format(value);
+}

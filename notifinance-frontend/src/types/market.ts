@@ -9,12 +9,15 @@ export type AssetType =
 
 export interface Asset {
   id: string;
-  ticker: string;
+  symbol: string;
   name: string;
-  assetType: AssetType;
-  sector: string;
-  yahooTicker: string;
-  description?: string;
+  type: string;
+  price: number;
+  variation: number;
+  volume?: number;
+  marketCap?: number;
+  sector?: string;
+  currency: string;
 }
 
 export interface DollarQuote {
