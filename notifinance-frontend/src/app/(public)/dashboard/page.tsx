@@ -14,19 +14,14 @@ import {
   mockIndices,
   mockTopMovers,
   mockMarketStatus,
+  mockWatchlist,
 } from "@/services/mockMarketData";
 
 export default function DashboardPage() {
   const { isAuthenticated } = useAuthStore();
 
   // Mock watchlist data for authenticated users
-  const mockWatchlist = isAuthenticated
-    ? [
-        { id: "1", symbol: "GGAL", name: "Grupo Financiero Galicia", price: 3500, variation: 5.2, type: "STOCK" as const },
-        { id: "2", symbol: "AAPL", name: "Apple Inc", price: 14500, variation: 1.8, type: "CEDEAR" as const },
-        { id: "3", symbol: "AL30", name: "Bono Rep. Argentina USD 2030", price: 55.2, variation: -0.5, type: "BOND" as const },
-      ]
-    : [];
+  const watchlist = isAuthenticated ? mockWatchlist : [];
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 p-6">
@@ -50,7 +45,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex flex-col gap-6">
           <RiskCountryCard initialData={mockCountryRisk} historyData={mockRiskHistory} />
-          {isAuthenticated && <WatchlistWidget items={mockWatchlist} />}
+          {isAuthenticated && <WatchlistWidget items={watchlist} />}
         </div>
       </div>
     </main>

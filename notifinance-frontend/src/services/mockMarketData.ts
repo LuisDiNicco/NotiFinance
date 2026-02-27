@@ -1,4 +1,4 @@
-import { DollarQuote, CountryRisk, MarketIndex, TopMover, MarketStatus } from "@/types/market";
+import { DollarQuote, CountryRisk, MarketIndex, TopMover, MarketStatus, WatchlistItem } from "@/types/market";
 
 // Mock data for development
 export const mockDollarQuotes: DollarQuote[] = [
@@ -111,3 +111,9 @@ export const mockMarketStatus: MarketStatus = {
   isOpen: true,
   nextChange: new Date(new Date().setHours(17, 0, 0, 0)).toISOString(), // Today at 17:00
 };
+
+export const mockWatchlist: WatchlistItem[] = [
+  { id: "1", symbol: "GGAL", name: "Grupo Financiero Galicia", price: 3500, variation: 5.2, type: "STOCK" },
+  { id: "2", symbol: "AAPL", name: "Apple Inc", price: 14500, variation: 1.8, type: "CEDEAR" },
+  { id: "3", symbol: "AL30", name: "Bono Rep. Argentina USD 2030", price: 55.2, variation: -0.5, type: "BOND" },
+];
