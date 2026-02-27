@@ -59,7 +59,7 @@ export default function RegisterPage() {
       });
       toast.success("Cuenta creada exitosamente");
       router.push("/dashboard");
-    } catch (_error) {
+    } catch {
       toast.error("Error al crear la cuenta");
     } finally {
       setIsLoading(false);

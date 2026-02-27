@@ -57,7 +57,7 @@ export default function LoginPage() {
       } else {
         toast.error("Credenciales inválidas. Probá con demo@notifinance.com / demo123");
       }
-    } catch (_error) {
+    } catch {
       toast.error("Error al iniciar sesión");
     } finally {
       setIsLoading(false);
@@ -76,7 +76,7 @@ export default function LoginPage() {
       });
       toast.success("Sesión demo iniciada");
       router.push("/dashboard");
-    } catch (_error) {
+    } catch {
       toast.error("Error al iniciar sesión demo");
     } finally {
       setIsDemoLoading(false);

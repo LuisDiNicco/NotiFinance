@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
     },
   });
 
-  async function onSubmit(_data: ForgotPasswordFormValues) {
+  async function onSubmit() {
     setIsLoading(true);
     try {
       // Simulate API call
@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
       
       setIsSubmitted(true);
       toast.success("Instrucciones enviadas a tu email");
-    } catch (_error) {
+    } catch {
       toast.error("Error al procesar la solicitud");
     } finally {
       setIsLoading(false);
