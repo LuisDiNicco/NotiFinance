@@ -6,6 +6,12 @@ import { useAuthStore } from "@/stores/authStore";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useSocket } from "@/hooks/useSocket";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 // Mock auth store
 vi.mock("@/stores/authStore", () => ({
   useAuthStore: vi.fn(),

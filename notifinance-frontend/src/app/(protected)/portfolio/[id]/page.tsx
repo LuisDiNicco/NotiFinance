@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { mockPortfolios, mockHoldings, mockPortfolioHistory, mockTrades } from "@/services/mockPortfolioData";
 import { PortfolioSummary } from "@/components/portfolio/PortfolioSummary";
 import { HoldingsTable } from "@/components/portfolio/HoldingsTable";
 import { TradesHistory } from "@/components/portfolio/TradesHistory";
-import { PortfolioChart } from "@/components/portfolio/PortfolioChart";
+import { PerformanceChart } from "@/components/charts/PerformanceChart";
+import { DonutChart } from "@/components/charts/DonutChart";
 
 interface PortfolioDetailPageProps {
   params: Promise<{ id: string }>;
@@ -49,27 +49,15 @@ export default async function PortfolioDetailPage({ params }: PortfolioDetailPag
         </TabsContent>
 
         <TabsContent value="performance" className="mt-4">
-          <PortfolioChart data={mockPortfolioHistory} />
+          <PerformanceChart data={mockPortfolioHistory} />
+          <p className="mt-3 text-sm text-muted-foreground">Benchmark overlay: Merval y Dólar MEP (modo mock).</p>
         </TabsContent>
 
         <TabsContent value="distribution" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Distribución por tipo</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {Object.entries(distributionByType).length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin datos de distribución.</p>
-              ) : (
-                Object.entries(distributionByType).map(([type, weight]) => (
-                  <div key={type} className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{type}</span>
-                    <span className="text-muted-foreground">{weight.toFixed(2)}%</span>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+          <DonutChart
+            title="Distribución por tipo"
+            data={Object.entries(distributionByType).map(([label, value]) => ({ label, value }))}
+          />
         </TabsContent>
 
         <TabsContent value="trades" className="mt-4">

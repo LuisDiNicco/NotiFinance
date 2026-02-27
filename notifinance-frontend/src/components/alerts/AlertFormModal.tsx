@@ -35,10 +35,11 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const alertFormSchema = z.object({
-  alertType: z.enum(["PRICE", "PCT_CHANGE", "DOLLAR", "RISK"]),
+  alertType: z.enum(["PRICE", "PCT_CHANGE", "DOLLAR", "RISK", "PORTFOLIO"]),
   assetId: z.string().optional(),
   condition: z.enum(["ABOVE", "BELOW", "CROSSES", "PCT_UP", "PCT_DOWN"]),
   threshold: z.number().positive("El valor debe ser mayor a 0"),
+  period: z.enum(["DAILY", "WEEKLY"]).optional(),
   channels: z.array(z.enum(["IN_APP", "EMAIL"])).min(1, "Seleccioná al menos un canal"),
   isRecurring: z.boolean(),
 });
@@ -60,6 +61,7 @@ export function AlertFormModal({ open, onOpenChange, alertToEdit, onSave }: Aler
       assetId: "",
       condition: "ABOVE",
       threshold: 0,
+      period: "DAILY",
       channels: ["IN_APP"],
       isRecurring: false,
     },
@@ -74,6 +76,7 @@ export function AlertFormModal({ open, onOpenChange, alertToEdit, onSave }: Aler
         assetId: alertToEdit.assetId || "",
         condition: alertToEdit.condition,
         threshold: alertToEdit.threshold,
+        period: alertToEdit.period ?? "DAILY",
         channels: alertToEdit.channels,
         isRecurring: alertToEdit.isRecurring,
       });
@@ -83,6 +86,7 @@ export function AlertFormModal({ open, onOpenChange, alertToEdit, onSave }: Aler
         assetId: "",
         condition: "ABOVE",
         threshold: 0,
+        period: "DAILY",
         channels: ["IN_APP"],
         isRecurring: false,
       });
@@ -97,6 +101,34 @@ export function AlertFormModal({ open, onOpenChange, alertToEdit, onSave }: Aler
     onSave(data);
     form.reset();
   }
+
+  const preview = (() => {
+    const values = form.getValues();
+    const target = values.alertType === "PRICE" || values.alertType === "PCT_CHANGE"
+      ? values.assetId || "el activo"
+      : values.alertType === "DOLLAR"
+        ? "el dólar"
+        : values.alertType === "RISK"
+          ? "el riesgo país"
+          : "tu portfolio";
+
+    const action = values.condition === "ABOVE"
+      ? "supere"
+      : values.condition === "BELOW"
+        ? "baje de"
+        : values.condition === "CROSSES"
+          ? "cruce"
+          : values.condition === "PCT_UP"
+            ? "suba más de"
+            : "baje más de";
+
+    const suffix = values.alertType === "PCT_CHANGE" && values.period
+      ? ` (${values.period === "DAILY" ? "diario" : "semanal"})`
+      : "";
+
+    const channels = values.channels.includes("EMAIL") ? "email e in-app" : "in-app";
+    return `Te notificaremos cuando ${target} ${action} ${values.threshold || 0}${suffix} por ${channels}.`;
+  })();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,6 +158,7 @@ export function AlertFormModal({ open, onOpenChange, alertToEdit, onSave }: Aler
                       <SelectItem value="PCT_CHANGE">Variación % de Activo</SelectItem>
                       <SelectItem value="DOLLAR">Dólar</SelectItem>
                       <SelectItem value="RISK">Riesgo País</SelectItem>
+                      <SelectItem value="PORTFOLIO">Portfolio</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -200,6 +233,30 @@ export function AlertFormModal({ open, onOpenChange, alertToEdit, onSave }: Aler
                 )}
               />
             </div>
+
+            {watchAlertType === "PCT_CHANGE" && (
+              <FormField
+                control={form.control}
+                name="period"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Período</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value ?? "DAILY"}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar período" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="DAILY">Diario</SelectItem>
+                        <SelectItem value="WEEKLY">Semanal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="space-y-3 pt-2 border-t">
               <h4 className="text-sm font-medium">Notificación</h4>
@@ -283,6 +340,10 @@ export function AlertFormModal({ open, onOpenChange, alertToEdit, onSave }: Aler
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+              {preview}
             </div>
 
             <DialogFooter className="pt-4">

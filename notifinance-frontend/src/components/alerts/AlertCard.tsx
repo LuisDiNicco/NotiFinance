@@ -28,6 +28,8 @@ export function AlertCard({ alert, onToggle, onEdit, onDelete }: AlertCardProps)
         return <DollarSign className="h-5 w-5 text-green-600" />;
       case "RISK":
         return <AlertTriangle className="h-5 w-5 text-orange-500" />;
+      case "PORTFOLIO":
+        return <Bell className="h-5 w-5 text-violet-500" />;
       default:
         return <Bell className="h-5 w-5 text-gray-500" />;
     }
@@ -43,6 +45,8 @@ export function AlertCard({ alert, onToggle, onEdit, onDelete }: AlertCardProps)
         return "Dólar";
       case "RISK":
         return "Riesgo País";
+      case "PORTFOLIO":
+        return "Portfolio";
       default:
         return "Alerta";
     }
@@ -56,6 +60,10 @@ export function AlertCard({ alert, onToggle, onEdit, onDelete }: AlertCardProps)
         ? alert.threshold.toString()
         : formatCurrency(alert.threshold);
 
+    const periodSuffix = alert.alertType === "PCT_CHANGE" && alert.period
+      ? ` (${alert.period === "DAILY" ? "diario" : "semanal"})`
+      : "";
+
     switch (alert.condition) {
       case "ABOVE":
         return `Sube por encima de ${thresholdStr}`;
@@ -64,9 +72,9 @@ export function AlertCard({ alert, onToggle, onEdit, onDelete }: AlertCardProps)
       case "CROSSES":
         return `Cruza ${thresholdStr}`;
       case "PCT_UP":
-        return `Sube más de ${thresholdStr}`;
+        return `Sube más de ${thresholdStr}${periodSuffix}`;
       case "PCT_DOWN":
-        return `Baja más de ${thresholdStr}`;
+        return `Baja más de ${thresholdStr}${periodSuffix}`;
       default:
         return `Condición: ${alert.condition} ${thresholdStr}`;
     }

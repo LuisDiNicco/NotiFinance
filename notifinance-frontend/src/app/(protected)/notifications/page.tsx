@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Notification } from "@/types/notification";
 import { mockNotifications } from "@/services/mockNotificationsData";
@@ -14,6 +14,8 @@ export default function NotificationsPage() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [activeTab, setActiveTab] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -23,6 +25,12 @@ export default function NotificationsPage() {
     if (activeTab === "market") return n.type === "MARKET_UPDATE";
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredNotifications.length / pageSize));
+  const paginatedNotifications = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredNotifications.slice(start, start + pageSize);
+  }, [filteredNotifications, currentPage]);
 
   const handleMarkAsRead = (id: string) => {
     setNotifications((prev) =>
@@ -75,7 +83,15 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs
+        defaultValue="all"
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value);
+          setCurrentPage(1);
+        }}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-4 mb-6">
           <TabsTrigger value="all">Todas</TabsTrigger>
           <TabsTrigger value="unread">
@@ -103,7 +119,7 @@ export default function NotificationsPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {filteredNotifications.map((notification) => (
+              {paginatedNotifications.map((notification) => (
                 <NotificationItem
                   key={notification.id}
                   notification={notification}
@@ -112,6 +128,28 @@ export default function NotificationsPage() {
                   onClick={handleNotificationClick}
                 />
               ))}
+
+              <div className="mt-2 flex items-center justify-between rounded-md border p-3">
+                <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages}</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </TabsContent>
