@@ -1,13 +1,13 @@
 # NotiFinance — Implementation Progress
 
 **Fecha:** 2026-02-27
-**Scope actual:** Frontend Fase F2 (Layout & Navigation) completada
+**Scope actual:** Frontend Fase F7 (Watchlist & Portfolio) completada
 
 ## Estado general
 
 - Plan total: **Backend cerrado, Frontend en progreso**
-- Fase actual: **Frontend F2 completada**
-- Última fase cerrada: **Frontend F2**
+- Fase actual: **Frontend F7 completada**
+- Última fase cerrada: **Frontend F7**
 
 ## Fases completadas (Frontend)
 
@@ -41,6 +41,82 @@ Implementado en frontend:
 - Componente `UserMenu` con avatar y opciones de sesión
 - Componente `CommandPalette` (Ctrl+K) con debounce y búsqueda agrupada
 - Tests unitarios para componentes de layout (`Sidebar`, `UserMenu`, `NotificationBell`)
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test` (OK)
+- ✅ `npm run build` (OK)
+
+### ✅ F3 — Dashboard (Public/Private)
+
+Implementado en frontend:
+- Página `DashboardPage` (`app/(public)/page.tsx`)
+- Componente `MarketStatusBadge` (estado del mercado)
+- Componente `DollarCard` (cotizaciones del dólar)
+- Componente `TopMoversTable` (acciones y CEDEARs con mayores variaciones)
+- Componente `WatchlistWidget` (resumen de watchlist para usuarios logueados)
+- Integración con datos mockeados (`mockMarketData.ts`)
+- Tests unitarios para componentes del dashboard
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test` (OK)
+- ✅ `npm run build` (OK)
+
+### ✅ F4 — Assets Directory & Detail
+
+Implementado en frontend:
+- Página `AssetsPage` (`app/(public)/assets/page.tsx`) con tabla de activos
+- Componente `AssetsTable` con filtrado, paginación y ordenamiento
+- Página `AssetDetailPage` (`app/(public)/assets/[ticker]/page.tsx`)
+- Componente `AssetChart` usando `lightweight-charts`
+- Componente `AssetActions` (botones de comprar/vender/watchlist)
+- Tests unitarios para componentes de activos
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test` (OK)
+- ✅ `npm run build` (OK)
+
+### ✅ F5 — Notifications & Alerts
+
+Implementado en frontend:
+- Página `NotificationsPage` (`app/(protected)/notifications/page.tsx`)
+- Componente `NotificationItem` con acciones (marcar leído, eliminar)
+- Página `AlertsPage` (`app/(protected)/alerts/page.tsx`)
+- Componente `AlertCard` con toggle de estado
+- Componente `CreateAlertDialog` para nuevas alertas
+- Tests unitarios para componentes de notificaciones y alertas
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test` (OK)
+- ✅ `npm run build` (OK)
+
+### ✅ F6 — Auth Pages
+
+Implementado en frontend:
+- Página `LoginPage` (`app/(public)/login/page.tsx`) con formulario y login demo
+- Página `RegisterPage` (`app/(public)/register/page.tsx`) con validación de contraseñas
+- Página `ForgotPasswordPage` (`app/(public)/forgot-password/page.tsx`)
+- Integración con `authStore` (Zustand)
+- Tests unitarios para páginas de autenticación
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test` (OK)
+- ✅ `npm run build` (OK)
+
+### ✅ F7 — Watchlist & Portfolio
+
+Implementado en frontend:
+- Página `WatchlistPage` (`app/(protected)/watchlist/page.tsx`)
+- Página `PortfolioPage` (`app/(protected)/portfolio/page.tsx`)
+- Componente `PortfolioSummary` (métricas clave)
+- Componente `HoldingsTable` (tenencias actuales)
+- Componente `TradesHistory` (historial de operaciones)
+- Componente `PortfolioChart` (rendimiento histórico)
+- Tests unitarios para páginas y componentes de portfolio/watchlist
 
 Validación realizada:
 - ✅ `npm run lint` (OK)
