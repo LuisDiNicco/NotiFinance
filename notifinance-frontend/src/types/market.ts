@@ -42,3 +42,33 @@ export interface MarketQuote {
   volume: number | null;
   changePct: number | null;
 }
+
+export interface MarketIndex {
+  symbol: string;
+  name: string;
+  value: number;
+  variation: number;
+  history: { time: string; value: number }[];
+}
+
+export interface TopMover {
+  symbol: string;
+  name: string;
+  price: number;
+  variation: number;
+  type: AssetType;
+}
+
+export interface WatchlistItem {
+  id: string;
+  symbol: string;
+  name: string;
+  price: number;
+  variation: number;
+  type: AssetType;
+}
+
+export interface MarketStatus {
+  isOpen: boolean;
+  nextChange: string; // ISO string of next open/close time
+}
