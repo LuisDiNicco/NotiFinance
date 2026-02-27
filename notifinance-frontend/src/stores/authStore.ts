@@ -19,6 +19,10 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       setSession: ({ user, tokens }) => {
+        if (typeof document !== "undefined") {
+          document.cookie = "notifinance-auth=1; path=/; max-age=2592000; samesite=lax";
+        }
+
         set({
           user,
           accessToken: tokens.accessToken,
@@ -27,6 +31,10 @@ export const useAuthStore = create<AuthState>()(
         });
       },
       clearSession: () => {
+        if (typeof document !== "undefined") {
+          document.cookie = "notifinance-auth=; path=/; max-age=0; samesite=lax";
+        }
+
         set({
           user: null,
           accessToken: null,

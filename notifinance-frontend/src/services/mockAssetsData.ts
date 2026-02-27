@@ -145,6 +145,30 @@ export const mockAssets: Asset[] = [
     sector: "Equity",
     currency: "ARS",
   },
+  {
+    id: "13",
+    symbol: "S30S5",
+    name: "LECAP Sep 2025",
+    type: "LECAP",
+    price: 1020,
+    variation: 0.2,
+    volume: 1200000,
+    marketCap: 7000000000,
+    sector: "Government",
+    currency: "ARS",
+  },
+  {
+    id: "14",
+    symbol: "YMCQO",
+    name: "ON YPF Clase XXVIII",
+    type: "ON",
+    price: 980,
+    variation: -0.4,
+    volume: 450000,
+    marketCap: 2100000000,
+    sector: "Corporate",
+    currency: "USD",
+  },
 ];
 
 export const mockAssetHistory = Array.from({ length: 30 }).map((_, i) => {

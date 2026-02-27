@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Asset } from "@/types/market";
-import { formatCurrency, formatPercent, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -27,10 +27,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { ArrowDownIcon, ArrowUpIcon, Search, SlidersHorizontal } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Search, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PriceDisplay } from "@/components/market/PriceDisplay";
+import { PercentBadge } from "@/components/market/PercentBadge";
+import { FavoriteButton } from "@/components/market/FavoriteButton";
 
 interface AssetsTableProps {
   initialData: Asset[];
@@ -193,20 +195,18 @@ export function AssetsTable({ initialData }: AssetsTableProps) {
                   )}
                 </Button>
               </TableHead>
+              <TableHead className="w-[80px] text-center">Fav</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                   No se encontraron activos.
                 </TableCell>
               </TableRow>
             ) : (
               paginatedData.map((asset) => {
-                const isPositive = asset.variation > 0;
-                const isNegative = asset.variation < 0;
-
                 return (
                   <TableRow key={asset.id} className="group">
                     <TableCell>
@@ -220,25 +220,16 @@ export function AssetsTable({ initialData }: AssetsTableProps) {
                       </Link>
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      {formatCurrency(asset.price)}
+                      <PriceDisplay value={asset.price} variation={asset.variation} className="justify-end" />
                     </TableCell>
                     <TableCell className="text-right">
-                      <div
-                        className={cn(
-                          "inline-flex items-center justify-end font-medium",
-                          isPositive ? "text-green-600" : isNegative ? "text-red-600" : "text-muted-foreground"
-                        )}
-                      >
-                        {isPositive ? (
-                          <ArrowUpIcon className="mr-1 h-3 w-3" />
-                        ) : isNegative ? (
-                          <ArrowDownIcon className="mr-1 h-3 w-3" />
-                        ) : null}
-                        {formatPercent(asset.variation)}
-                      </div>
+                      <PercentBadge value={asset.variation} />
                     </TableCell>
                     <TableCell className="text-right hidden md:table-cell text-muted-foreground">
                       {asset.volume ? formatNumber(asset.volume) : "-"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <FavoriteButton />
                     </TableCell>
                   </TableRow>
                 );

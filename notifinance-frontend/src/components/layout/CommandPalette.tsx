@@ -4,6 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { TrendingUp, Globe, Landmark } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api";
 
 import {
   CommandDialog,
@@ -24,6 +26,13 @@ const mockResults = [
   { id: "5", type: "bono", symbol: "AL30", name: "Bono Rep. Argentina USD 2030", icon: Landmark },
 ];
 
+interface SearchItem {
+  id: string;
+  type: "accion" | "cedear" | "bono";
+  symbol: string;
+  name: string;
+}
+
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -42,21 +51,36 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  // In a real app, we would fetch data here based on debouncedQuery
-  // const { data, isLoading } = useQuery({
-  //   queryKey: ['search', debouncedQuery],
-  //   queryFn: () => fetch(`/api/v1/search?q=${debouncedQuery}`).then(res => res.json()),
-  //   enabled: debouncedQuery.length > 0,
-  // });
+  const { data } = useQuery({
+    queryKey: ["search", debouncedQuery],
+    enabled: debouncedQuery.length > 0,
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get<{ data: SearchItem[] }>("/search", {
+          params: { q: debouncedQuery },
+        });
+
+        return response.data.data;
+      } catch {
+        return [];
+      }
+    },
+  });
 
   const filteredResults = React.useMemo(() => {
     if (!debouncedQuery) return [];
-    return mockResults.filter(
+
+    const source =
+      data && data.length > 0
+        ? data.map((item) => ({ ...item, icon: item.type === "accion" ? TrendingUp : item.type === "cedear" ? Globe : Landmark }))
+        : mockResults;
+
+    return source.filter(
       (item) =>
         item.symbol.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
         item.name.toLowerCase().includes(debouncedQuery.toLowerCase())
     );
-  }, [debouncedQuery]);
+  }, [data, debouncedQuery]);
 
   const runCommand = React.useCallback((command: () => void) => {
     setOpen(false);
@@ -111,7 +135,7 @@ export function CommandPalette() {
                     key={item.id}
                     value={`${item.symbol} ${item.name}`}
                     onSelect={() => {
-                      runCommand(() => router.push(`/assets/${item.type}s/${item.symbol}`));
+                      runCommand(() => router.push(`/assets/${item.symbol}`));
                     }}
                   >
                     <item.icon className="mr-2 h-4 w-4" />

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,12 +13,36 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/stores/authStore";
+import Link from "next/link";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useSocket } from "@/hooks/useSocket";
+import { Notification } from "@/types/notification";
+import { mockNotifications } from "@/services/mockNotificationsData";
 
 export function NotificationBell() {
   const { isAuthenticated } = useAuthStore();
-  
-  // Mock unread count for now
-  const unreadCount = 3;
+  const { data } = useNotifications();
+  const { notificationSocket } = useSocket();
+  const [liveNotifications, setLiveNotifications] = useState<Notification[]>([]);
+
+  const notifications = useMemo(
+    () => (data && data.length > 0 ? (data as Notification[]) : mockNotifications),
+    [data],
+  );
+
+  useEffect(() => {
+    const handleNewNotification = (notification: Notification) => {
+      setLiveNotifications((previous) => [notification, ...previous]);
+    };
+
+    notificationSocket.on("notification:new", handleNewNotification);
+    return () => {
+      notificationSocket.off("notification:new", handleNewNotification);
+    };
+  }, [notificationSocket]);
+
+  const inbox = [...liveNotifications, ...notifications].slice(0, 5);
+  const unreadCount = inbox.filter((item) => !item.isRead).length;
 
   if (!isAuthenticated) return null;
 
@@ -41,30 +66,23 @@ export function NotificationBell() {
         <DropdownMenuLabel>Notificaciones</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="max-h-[300px] overflow-y-auto">
-          <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-            <div className="flex items-center justify-between w-full">
-              <span className="font-medium text-sm">Alerta de Precio</span>
-              <span className="text-xs text-muted-foreground">Hace 5m</span>
-            </div>
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              GGAL ha superado tu precio objetivo de $3,500.
-            </p>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-            <div className="flex items-center justify-between w-full">
-              <span className="font-medium text-sm">Nuevo Reporte</span>
-              <span className="text-xs text-muted-foreground">Hace 1h</span>
-            </div>
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              El reporte diario de mercado ya está disponible.
-            </p>
-          </DropdownMenuItem>
+          {inbox.map((notification) => (
+            <DropdownMenuItem key={notification.id} className="flex flex-col items-start gap-1 p-3 cursor-pointer">
+              <div className="flex items-center justify-between w-full">
+                <span className="font-medium text-sm flex items-center gap-2">
+                  {!notification.isRead ? <span className="h-2 w-2 rounded-full bg-primary" /> : null}
+                  {notification.title}
+                </span>
+                <span className="text-xs text-muted-foreground">hace un momento</span>
+              </div>
+              <p className="text-xs text-muted-foreground line-clamp-2">{notification.body}</p>
+            </DropdownMenuItem>
+          ))}
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="justify-center text-primary cursor-pointer">
-          Ver todas las notificaciones
-        </DropdownMenuItem>
+          <DropdownMenuItem asChild className="justify-center text-primary cursor-pointer">
+            <Link href="/notifications">Ver todas las notificaciones</Link>
+          </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
