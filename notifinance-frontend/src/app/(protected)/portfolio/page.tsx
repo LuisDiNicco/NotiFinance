@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { mockPortfolios, mockHoldings, mockTrades, mockPortfolioHistory } from "@/services/mockPortfolioData";
 import { PortfolioSummary } from "@/components/portfolio/PortfolioSummary";
 import { HoldingsTable } from "@/components/portfolio/HoldingsTable";
@@ -6,10 +9,13 @@ import { PortfolioChart } from "@/components/portfolio/PortfolioChart";
 import { AddTradeModal } from "@/components/portfolio/AddTradeModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default function PortfolioPage() {
-  // In a real app, we would fetch the user's portfolios and select the active one
-  const activePortfolio = mockPortfolios[0];
+  const [activePortfolioId, setActivePortfolioId] = useState(mockPortfolios[0].id);
+  
+  const activePortfolio = mockPortfolios.find(p => p.id === activePortfolioId) || mockPortfolios[0];
   const holdings = mockHoldings[activePortfolio.id] || [];
   const trades = mockTrades[activePortfolio.id] || [];
 
@@ -24,7 +30,7 @@ export default function PortfolioPage() {
         </div>
         
         <div className="flex items-center gap-4 w-full sm:w-auto">
-          <Select defaultValue={activePortfolio.id}>
+          <Select value={activePortfolioId} onValueChange={setActivePortfolioId}>
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Seleccionar portafolio" />
             </SelectTrigger>
@@ -36,6 +42,10 @@ export default function PortfolioPage() {
               ))}
             </SelectContent>
           </Select>
+          
+          <Button variant="outline" size="icon" title="Crear nuevo portafolio">
+            <Plus className="h-4 w-4" />
+          </Button>
           
           <AddTradeModal portfolioId={activePortfolio.id} />
         </div>
