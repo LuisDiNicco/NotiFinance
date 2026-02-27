@@ -1,23 +1,65 @@
 "use client";
 
 import { useState } from "react";
-import { mockPortfolios, mockHoldings, mockTrades, mockPortfolioHistory } from "@/services/mockPortfolioData";
+import { mockPortfolios } from "@/services/mockPortfolioData";
+import { useCreatePortfolio, usePortfolio } from "@/hooks/usePortfolio";
 import { PortfolioSummary } from "@/components/portfolio/PortfolioSummary";
-import { HoldingsTable } from "@/components/portfolio/HoldingsTable";
-import { TradesHistory } from "@/components/portfolio/TradesHistory";
-import { PortfolioChart } from "@/components/portfolio/PortfolioChart";
-import { AddTradeModal } from "@/components/portfolio/AddTradeModal";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import Link from "next/link";
 
 export default function PortfolioPage() {
-  const [activePortfolioId, setActivePortfolioId] = useState(mockPortfolios[0].id);
-  
-  const activePortfolio = mockPortfolios.find(p => p.id === activePortfolioId) || mockPortfolios[0];
-  const holdings = mockHoldings[activePortfolio.id] || [];
-  const trades = mockTrades[activePortfolio.id] || [];
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [portfolioName, setPortfolioName] = useState("");
+  const [portfolioDescription, setPortfolioDescription] = useState("");
+  const portfolioQuery = usePortfolio();
+  const createPortfolioMutation = useCreatePortfolio();
+
+  const usingFallback = portfolioQuery.isError;
+  const portfolios = usingFallback ? mockPortfolios : (portfolioQuery.data ?? []);
+
+  const highlightedPortfolio = portfolios[0] ?? null;
+
+  const handleCreatePortfolio = async () => {
+    const name = portfolioName.trim();
+    if (!name) {
+      toast.error("Ingresá un nombre para el portfolio");
+      return;
+    }
+
+    if (usingFallback) {
+      toast.info("Modo demo: creación disponible al conectar con backend");
+      setCreateDialogOpen(false);
+      setPortfolioName("");
+      setPortfolioDescription("");
+      return;
+    }
+
+    try {
+      await createPortfolioMutation.mutateAsync({
+        name,
+        description: portfolioDescription.trim() || undefined,
+      });
+      toast.success("Portfolio creado correctamente");
+      setCreateDialogOpen(false);
+      setPortfolioName("");
+      setPortfolioDescription("");
+    } catch {
+      toast.error("No se pudo crear el portfolio");
+    }
+  };
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 p-6">
@@ -28,57 +70,91 @@ export default function PortfolioPage() {
             Gestioná tus inversiones y analizá tus rendimientos.
           </p>
         </div>
-        
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <Select value={activePortfolioId} onValueChange={setActivePortfolioId}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Seleccionar portafolio" />
-            </SelectTrigger>
-            <SelectContent>
-              {mockPortfolios.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Button variant="outline" size="icon" title="Crear nuevo portafolio">
-            <Plus className="h-4 w-4" />
-          </Button>
-          
-          <AddTradeModal portfolioId={activePortfolio.id} />
-        </div>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Crear portfolio
+        </Button>
       </div>
 
-      <PortfolioSummary portfolio={activePortfolio} />
+      {portfolioQuery.isLoading && !usingFallback ? (
+        <div className="flex h-24 items-center justify-center rounded-md border text-sm text-muted-foreground">
+          Cargando portfolios...
+        </div>
+      ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <PortfolioChart data={mockPortfolioHistory} />
-        </div>
-        
-        <div className="bg-muted/50 rounded-xl p-6 flex flex-col justify-center items-center text-center border border-dashed">
-          <h3 className="font-medium mb-2">Distribución de Activos</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Próximamente: Gráfico de torta con la distribución por tipo de activo y sector.
-          </p>
-          <div className="w-32 h-32 rounded-full border-4 border-primary/20 border-t-primary animate-spin-slow"></div>
-        </div>
+      {highlightedPortfolio ? <PortfolioSummary portfolio={highlightedPortfolio} /> : null}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {portfolios.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground">
+              No tenés portfolios creados.
+            </CardContent>
+          </Card>
+        ) : (
+          portfolios.map((portfolio) => (
+            <Card key={portfolio.id}>
+              <CardHeader>
+                <CardTitle>{portfolio.name}</CardTitle>
+                <CardDescription>{portfolio.description ?? "Sin descripción"}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-sm text-muted-foreground">
+                  Valor total: <span className="font-medium text-foreground">${portfolio.totalValue.toLocaleString("es-AR")}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  P&amp;L total: <span className="font-medium text-foreground">${portfolio.totalReturn.toLocaleString("es-AR")}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Variación: <span className="font-medium text-foreground">{portfolio.totalReturnPct.toFixed(2)}%</span>
+                </div>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href={`/portfolio/${portfolio.id}`}>Ver detalle</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
-      <Tabs defaultValue="holdings" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="holdings">Tenencias</TabsTrigger>
-          <TabsTrigger value="trades">Historial de Operaciones</TabsTrigger>
-        </TabsList>
-        <TabsContent value="holdings" className="mt-4">
-          <HoldingsTable holdings={holdings} />
-        </TabsContent>
-        <TabsContent value="trades" className="mt-4">
-          <TradesHistory trades={trades} />
-        </TabsContent>
-      </Tabs>
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear portfolio</DialogTitle>
+            <DialogDescription>Definí un nombre y descripción para tu nuevo portfolio.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="portfolio-name">Nombre</Label>
+              <Input
+                id="portfolio-name"
+                placeholder="Ej: Largo plazo"
+                value={portfolioName}
+                onChange={(event) => setPortfolioName(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="portfolio-description">Descripción</Label>
+              <Input
+                id="portfolio-description"
+                placeholder="Opcional"
+                value={portfolioDescription}
+                onChange={(event) => setPortfolioDescription(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreatePortfolio}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

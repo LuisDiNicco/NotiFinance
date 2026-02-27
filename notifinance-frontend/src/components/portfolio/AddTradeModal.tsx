@@ -46,9 +46,10 @@ type TradeFormValues = z.infer<typeof tradeFormSchema>;
 
 interface AddTradeModalProps {
   portfolioId: string;
+  onSubmitTrade?: (data: TradeFormValues) => Promise<void> | void;
 }
 
-export function AddTradeModal({ portfolioId }: AddTradeModalProps) {
+export function AddTradeModal({ portfolioId, onSubmitTrade }: AddTradeModalProps) {
   const [open, setOpen] = useState(false);
 
   const form = useForm<TradeFormValues>({
@@ -63,12 +64,20 @@ export function AddTradeModal({ portfolioId }: AddTradeModalProps) {
     },
   });
 
-  function onSubmit(data: TradeFormValues) {
-    // In a real app, this would call an API
-    console.log("Submitting trade for portfolio", portfolioId, data);
-    toast.success("Operación registrada exitosamente");
-    setOpen(false);
-    form.reset();
+  async function onSubmit(data: TradeFormValues) {
+    try {
+      if (onSubmitTrade) {
+        await onSubmitTrade(data);
+      } else {
+        console.log("Submitting trade for portfolio", portfolioId, data);
+      }
+
+      toast.success("Operación registrada exitosamente");
+      setOpen(false);
+      form.reset();
+    } catch {
+      toast.error("No se pudo registrar la operación");
+    }
   }
 
   return (

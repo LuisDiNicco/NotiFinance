@@ -3,6 +3,14 @@
 import { useState } from "react";
 import { Alert } from "@/types/alert";
 import { mockAlerts } from "@/services/mockAlertsData";
+import {
+  AlertPayload,
+  useAlerts,
+  useChangeAlertStatus,
+  useCreateAlert,
+  useDeleteAlert,
+  useUpdateAlert,
+} from "@/hooks/useAlerts";
 import { AlertCard } from "@/components/alerts/AlertCard";
 import { AlertFormModal } from "@/components/alerts/AlertFormModal";
 import { Button } from "@/components/ui/button";
@@ -10,27 +18,58 @@ import { Plus, BellRing } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
+  const [fallbackAlerts, setFallbackAlerts] = useState<Alert[]>(mockAlerts);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [alertToEdit, setAlertToEdit] = useState<Alert | null>(null);
+  const alertsQuery = useAlerts();
+  const createAlertMutation = useCreateAlert();
+  const updateAlertMutation = useUpdateAlert();
+  const changeStatusMutation = useChangeAlertStatus();
+  const deleteAlertMutation = useDeleteAlert();
+
+  const usingFallback = alertsQuery.isError;
+  const alerts = usingFallback ? fallbackAlerts : (alertsQuery.data?.data ?? []);
 
   const activeAlertsCount = alerts.filter((a) => a.status === "ACTIVE").length;
   const maxAlerts = 20;
 
-  const handleToggle = (id: string, active: boolean) => {
-    setAlerts((prev) =>
-      prev.map((alert) =>
-        alert.id === id
-          ? { ...alert, status: active ? "ACTIVE" : "PAUSED" }
-          : alert
-      )
-    );
-    toast.success(`Alerta ${active ? "activada" : "pausada"}`);
+  const handleToggle = async (id: string, active: boolean) => {
+    if (usingFallback) {
+      setFallbackAlerts((prev) =>
+        prev.map((alert) =>
+          alert.id === id
+            ? { ...alert, status: active ? "ACTIVE" : "PAUSED" }
+            : alert,
+        ),
+      );
+      toast.success(`Alerta ${active ? "activada" : "pausada"}`);
+      return;
+    }
+
+    try {
+      await changeStatusMutation.mutateAsync({
+        alertId: id,
+        status: active ? "ACTIVE" : "PAUSED",
+      });
+      toast.success(`Alerta ${active ? "activada" : "pausada"}`);
+    } catch {
+      toast.error("No se pudo actualizar el estado de la alerta");
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setAlerts((prev) => prev.filter((alert) => alert.id !== id));
-    toast.success("Alerta eliminada");
+  const handleDelete = async (id: string) => {
+    if (usingFallback) {
+      setFallbackAlerts((prev) => prev.filter((alert) => alert.id !== id));
+      toast.success("Alerta eliminada");
+      return;
+    }
+
+    try {
+      await deleteAlertMutation.mutateAsync(id);
+      toast.success("Alerta eliminada");
+    } catch {
+      toast.error("No se pudo eliminar la alerta");
+    }
   };
 
   const handleEdit = (alert: Alert) => {
@@ -47,26 +86,45 @@ export default function AlertsPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = (data: Omit<Alert, "id" | "userId" | "status" | "createdAt">) => {
-    if (alertToEdit) {
-      setAlerts((prev) =>
-        prev.map((alert) =>
-          alert.id === alertToEdit.id ? { ...alert, ...data } : alert
-        )
-      );
-      toast.success("Alerta actualizada");
-    } else {
-      const newAlert: Alert = {
-        id: `a${Date.now()}`,
-        userId: "u1",
-        ...data,
-        status: "ACTIVE",
-        createdAt: new Date().toISOString(),
-      };
-      setAlerts((prev) => [newAlert, ...prev]);
-      toast.success("Alerta creada");
+  const handleSave = async (data: AlertPayload) => {
+    if (usingFallback) {
+      if (alertToEdit) {
+        setFallbackAlerts((prev) =>
+          prev.map((alert) =>
+            alert.id === alertToEdit.id ? { ...alert, ...data } : alert,
+          ),
+        );
+        toast.success("Alerta actualizada");
+      } else {
+        const newAlert: Alert = {
+          id: `a${Date.now()}`,
+          userId: "u1",
+          ...data,
+          status: "ACTIVE",
+          createdAt: new Date().toISOString(),
+        };
+        setFallbackAlerts((prev) => [newAlert, ...prev]);
+        toast.success("Alerta creada");
+      }
+      setIsModalOpen(false);
+      return;
     }
-    setIsModalOpen(false);
+
+    try {
+      if (alertToEdit) {
+        await updateAlertMutation.mutateAsync({
+          alertId: alertToEdit.id,
+          payload: data,
+        });
+        toast.success("Alerta actualizada");
+      } else {
+        await createAlertMutation.mutateAsync(data);
+        toast.success("Alerta creada");
+      }
+      setIsModalOpen(false);
+    } catch {
+      toast.error("No se pudo guardar la alerta. Verificá los datos e intentá nuevamente.");
+    }
   };
 
   return (
@@ -89,7 +147,11 @@ export default function AlertsPage() {
         </div>
       </div>
 
-      {alerts.length === 0 ? (
+      {alertsQuery.isLoading && !usingFallback ? (
+        <div className="flex items-center justify-center rounded-lg border bg-muted/10 py-10 text-sm text-muted-foreground">
+          Cargando alertas...
+        </div>
+      ) : alerts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-muted/10">
           <BellRing className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium">No tenés alertas configuradas</h3>

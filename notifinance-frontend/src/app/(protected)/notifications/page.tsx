@@ -4,6 +4,12 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Notification } from "@/types/notification";
 import { mockNotifications } from "@/services/mockNotificationsData";
+import {
+  useDeleteNotification,
+  useMarkAllNotificationsAsRead,
+  useMarkNotificationAsRead,
+  useNotifications,
+} from "@/hooks/useNotifications";
 import { NotificationItem } from "@/components/notifications/NotificationItem";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,10 +18,19 @@ import { toast } from "sonner";
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [fallbackNotifications, setFallbackNotifications] = useState<Notification[]>(mockNotifications);
   const [activeTab, setActiveTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
+  const notificationsQuery = useNotifications({ unreadOnly: activeTab === "unread", page: 1, limit: 100 });
+  const markAsReadMutation = useMarkNotificationAsRead();
+  const markAllMutation = useMarkAllNotificationsAsRead();
+  const deleteMutation = useDeleteNotification();
+
+  const usingFallback = notificationsQuery.isError;
+  const notifications = usingFallback
+    ? fallbackNotifications
+    : ((notificationsQuery.data?.data as Notification[] | undefined) ?? []);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -32,20 +47,49 @@ export default function NotificationsPage() {
     return filteredNotifications.slice(start, start + pageSize);
   }, [filteredNotifications, currentPage]);
 
-  const handleMarkAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
+  const handleMarkAsRead = async (id: string) => {
+    if (usingFallback) {
+      setFallbackNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      );
+      return;
+    }
+
+    try {
+      await markAsReadMutation.mutateAsync(id);
+    } catch {
+      toast.error("No se pudo marcar la notificación como leída");
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    toast.success("Todas las notificaciones marcadas como leídas");
+  const handleMarkAllAsRead = async () => {
+    if (usingFallback) {
+      setFallbackNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      toast.success("Todas las notificaciones marcadas como leídas");
+      return;
+    }
+
+    try {
+      await markAllMutation.mutateAsync();
+      toast.success("Todas las notificaciones marcadas como leídas");
+    } catch {
+      toast.error("No se pudieron marcar todas las notificaciones");
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    toast.success("Notificación eliminada");
+  const handleDelete = async (id: string) => {
+    if (usingFallback) {
+      setFallbackNotifications((prev) => prev.filter((n) => n.id !== id));
+      toast.success("Notificación eliminada");
+      return;
+    }
+
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast.success("Notificación eliminada");
+    } catch {
+      toast.error("No se pudo eliminar la notificación");
+    }
   };
 
   const handleNotificationClick = (notification: Notification) => {
@@ -107,7 +151,11 @@ export default function NotificationsPage() {
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-0 space-y-4">
-          {filteredNotifications.length === 0 ? (
+          {notificationsQuery.isLoading && !usingFallback ? (
+            <div className="flex items-center justify-center rounded-lg border bg-muted/10 py-10 text-sm text-muted-foreground">
+              Cargando notificaciones...
+            </div>
+          ) : filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-muted/10">
               <Bell className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
               <h3 className="text-lg font-medium">No hay notificaciones</h3>

@@ -2,11 +2,53 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import AlertsPage from "../page";
 
+const mockDeleteAlert = vi.fn();
+
+vi.mock("@/hooks/useAlerts", () => ({
+  useAlerts: () => ({
+    isError: false,
+    isLoading: false,
+    data: {
+      data: [
+        {
+          id: "a1",
+          userId: "u1",
+          assetId: "GGAL",
+          alertType: "PRICE",
+          condition: "ABOVE",
+          threshold: 100,
+          channels: ["IN_APP"],
+          isRecurring: false,
+          status: "ACTIVE",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "a2",
+          userId: "u1",
+          assetId: "YPFD",
+          alertType: "PRICE",
+          condition: "ABOVE",
+          threshold: 200,
+          channels: ["IN_APP"],
+          isRecurring: false,
+          status: "PAUSED",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
+    },
+  }),
+  useCreateAlert: () => ({ mutateAsync: vi.fn() }),
+  useUpdateAlert: () => ({ mutateAsync: vi.fn() }),
+  useChangeAlertStatus: () => ({ mutateAsync: vi.fn() }),
+  useDeleteAlert: () => ({ mutateAsync: mockDeleteAlert }),
+}));
+
 // Mock the components
 vi.mock("@/components/alerts/AlertCard", () => ({
-  AlertCard: ({ alert, onToggle, onDelete, onEdit }: { alert: { id: string, status: string, asset: string }, onToggle: (id: string, active: boolean) => void, onDelete: (id: string) => void, onEdit: (alert: unknown) => void }) => (
+  AlertCard: ({ alert, onToggle, onDelete, onEdit }: { alert: { id: string, status: string, assetId?: string }, onToggle: (id: string, active: boolean) => void, onDelete: (id: string) => void, onEdit: (alert: unknown) => void }) => (
     <div data-testid={`alert-card-${alert.id}`}>
-      <span>{alert.asset}</span>
+      <span>{alert.assetId}</span>
       <button onClick={() => onToggle(alert.id, alert.status !== "ACTIVE")}>Toggle</button>
       <button onClick={() => onDelete(alert.id)}>Delete</button>
       <button onClick={() => onEdit(alert)}>Edit</button>
@@ -15,11 +57,11 @@ vi.mock("@/components/alerts/AlertCard", () => ({
 }));
 
 vi.mock("@/components/alerts/AlertFormModal", () => ({
-  AlertFormModal: ({ isOpen, onClose, onSave }: { isOpen: boolean, onClose: () => void, onSave: (data: unknown) => void, initialData?: unknown }) => (
-    isOpen ? (
+  AlertFormModal: ({ open, onOpenChange, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, onSave: (data: unknown) => void, initialData?: unknown }) => (
+    open ? (
       <div data-testid="alert-form-modal">
-        <button onClick={onClose}>Close</button>
-        <button onClick={() => onSave({ asset: "YPFD", condition: "GREATER_THAN", threshold: 20000, type: "PRICE" })}>Save</button>
+        <button onClick={() => onOpenChange(false)}>Close</button>
+        <button onClick={() => onSave({ assetId: "YPFD", condition: "ABOVE", threshold: 20000, alertType: "PRICE", channels: ["IN_APP"], isRecurring: false })}>Save</button>
       </div>
     ) : null
   ),
@@ -56,7 +98,7 @@ describe("AlertsPage", () => {
     expect(createBtn).toBeInTheDocument();
   });
 
-  it("handles deleting an alert", () => {
+  it("calls delete mutation when deleting an alert", () => {
     render(<AlertsPage />);
     
     const alert1 = screen.getByTestId("alert-card-a1");
@@ -66,6 +108,6 @@ describe("AlertsPage", () => {
       fireEvent.click(deleteBtn);
     }
     
-    expect(screen.queryByTestId("alert-card-a1")).not.toBeInTheDocument();
+    expect(mockDeleteAlert).toHaveBeenCalledWith("a1");
   });
 });

@@ -26,12 +26,12 @@ import { es } from "date-fns/locale";
 export function NotificationBell() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const { data } = useNotifications();
+  const { data } = useNotifications({ page: 1, limit: 5, enabled: isAuthenticated });
   const { notificationSocket } = useSocket();
   const [liveNotifications, setLiveNotifications] = useState<Notification[]>([]);
 
   const notifications = useMemo(
-    () => (data && data.length > 0 ? (data as Notification[]) : mockNotifications),
+    () => (data?.data && data.data.length > 0 ? (data.data as Notification[]) : mockNotifications),
     [data],
   );
 

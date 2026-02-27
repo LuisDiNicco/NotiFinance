@@ -2,6 +2,40 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import PortfolioPage from "../page";
 
+const mockCreatePortfolio = vi.fn();
+
+vi.mock("@/hooks/usePortfolio", () => ({
+  usePortfolio: () => ({
+    isError: false,
+    isLoading: false,
+    data: [
+      {
+        id: "p1",
+        name: "Portafolio Principal",
+        description: "Inversiones a largo plazo",
+        totalValue: 15000000,
+        totalReturn: 2500000,
+        totalReturnPct: 20,
+        dailyReturn: 0,
+        dailyReturnPct: 0,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "p2",
+        name: "Trading Corto Plazo",
+        description: "Operaciones especulativas",
+        totalValue: 5000000,
+        totalReturn: -250000,
+        totalReturnPct: -4.76,
+        dailyReturn: 0,
+        dailyReturnPct: 0,
+        createdAt: new Date().toISOString(),
+      },
+    ],
+  }),
+  useCreatePortfolio: () => ({ mutateAsync: mockCreatePortfolio }),
+}));
+
 // Mock ResizeObserver for Recharts/Lightweight Charts
 global.ResizeObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
@@ -46,26 +80,27 @@ describe("PortfolioPage", () => {
     expect(screen.getByText("Mi Portafolio")).toBeInTheDocument();
     expect(screen.getByText("Portafolio Principal")).toBeInTheDocument();
     expect(screen.getByText("Valor Total")).toBeInTheDocument();
-    expect(screen.getByText("Rendimiento Total")).toBeInTheDocument();
+    expect(screen.getByText("Crear portfolio")).toBeInTheDocument();
   });
 
-  it("renders holdings table by default", () => {
+  it("renders portfolio cards", () => {
     render(<PortfolioPage />);
-    
-    expect(screen.getByRole("tab", { name: "Tenencias" })).toHaveAttribute("data-state", "active");
-    expect(screen.getByText("GGAL")).toBeInTheDocument();
-    expect(screen.getByText("AAPL")).toBeInTheDocument();
+
+    expect(screen.getByText("Portafolio Principal")).toBeInTheDocument();
+    expect(screen.getByText("Trading Corto Plazo")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Ver detalle" }).length).toBeGreaterThan(0);
   });
 
-  it("switches to trades history tab", async () => {
+  it("opens create dialog and submits", async () => {
     render(<PortfolioPage />);
-    
-    const tradesTab = screen.getByRole("tab", { name: "Historial de Operaciones" });
-    fireEvent.click(tradesTab);
 
-    // Wait for the tab content to be visible by checking for a trade that exists in the mock data
+    fireEvent.click(screen.getByRole("button", { name: "Crear portfolio" }));
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Nuevo" } });
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Desc" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
     await waitFor(() => {
-      expect(screen.getAllByText("GGAL").length).toBeGreaterThan(0);
+      expect(mockCreatePortfolio).toHaveBeenCalledWith({ name: "Nuevo", description: "Desc" });
     });
   });
 });

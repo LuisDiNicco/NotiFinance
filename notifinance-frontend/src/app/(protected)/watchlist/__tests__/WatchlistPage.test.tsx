@@ -1,7 +1,33 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import WatchlistPage from "../page";
 import { toast } from "sonner";
+
+const mockRemove = vi.fn();
+const mockAdd = vi.fn();
+
+vi.mock("@/hooks/useWatchlist", () => ({
+  useWatchlist: () => ({
+    isError: false,
+    isLoading: false,
+    data: [
+      { id: "1", symbol: "GGAL", name: "Grupo Galicia", price: 1000, variation: 1.5, type: "STOCK" },
+      { id: "2", symbol: "AAPL", name: "Apple", price: 2000, variation: -0.5, type: "CEDEAR" },
+      { id: "3", symbol: "AL30", name: "AL30", price: 3000, variation: 0.2, type: "BOND" },
+    ],
+  }),
+  useAddWatchlistItem: () => ({ mutateAsync: mockAdd }),
+  useRemoveWatchlistItem: () => ({ mutateAsync: mockRemove }),
+}));
+
+vi.mock("@/hooks/useSocket", () => ({
+  useSocket: () => ({
+    marketSocket: {
+      on: vi.fn(),
+      off: vi.fn(),
+    },
+  }),
+}));
 
 // Mock sonner
 vi.mock("sonner", () => ({
@@ -20,6 +46,8 @@ vi.mock("next/link", () => ({
 describe("WatchlistPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRemove.mockResolvedValue(undefined);
+    mockAdd.mockResolvedValue(undefined);
   });
 
   it("renders watchlist items correctly", () => {
@@ -28,7 +56,7 @@ describe("WatchlistPage", () => {
     expect(screen.getByText("Watchlist")).toBeInTheDocument();
     expect(screen.getByText("GGAL")).toBeInTheDocument();
     expect(screen.getByText("AAPL")).toBeInTheDocument();
-    expect(screen.getByText("AL30")).toBeInTheDocument();
+    expect(screen.getAllByText("AL30").length).toBeGreaterThan(0);
   });
 
   it("filters items by search term", () => {
@@ -42,23 +70,28 @@ describe("WatchlistPage", () => {
     expect(screen.queryByText("AL30")).not.toBeInTheDocument();
   });
 
-  it("removes item when delete button is clicked", () => {
+  it("removes item when delete button is clicked", async () => {
     render(<WatchlistPage />);
     
     const deleteButtons = screen.getAllByRole("button", { name: "Eliminar" });
     fireEvent.click(deleteButtons[0]);
 
-    expect(toast.success).toHaveBeenCalledWith("Activo eliminado de favoritos");
-    expect(screen.queryByText("GGAL")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockRemove).toHaveBeenCalledWith("GGAL");
+      expect(toast.success).toHaveBeenCalledWith("Activo eliminado de favoritos");
+    });
   });
 
-  it("shows empty state when all items are removed", () => {
+  it("adds ticker from inline input", async () => {
     render(<WatchlistPage />);
-    
-    const deleteButtons = screen.getAllByRole("button", { name: "Eliminar" });
-    deleteButtons.forEach(button => fireEvent.click(button));
 
-    expect(screen.getByText("No tenés favoritos.")).toBeInTheDocument();
-    expect(screen.getByText("Explorar activos →")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Agregar ticker (ej: GGAL)"), {
+      target: { value: "YPFD" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+
+    await waitFor(() => {
+      expect(mockAdd).toHaveBeenCalledWith("YPFD");
+    });
   });
 });

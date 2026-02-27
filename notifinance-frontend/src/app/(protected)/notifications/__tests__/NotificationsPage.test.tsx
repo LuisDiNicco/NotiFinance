@@ -2,6 +2,41 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import NotificationsPage from "../page";
 
+const mockMarkAll = vi.fn();
+
+vi.mock("@/hooks/useNotifications", () => ({
+  useNotifications: () => ({
+    isError: false,
+    isLoading: false,
+    data: {
+      data: [
+        {
+          id: "n1",
+          userId: "u1",
+          title: "N1",
+          body: "Body 1",
+          type: "ALERT_TRIGGERED",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "n2",
+          userId: "u1",
+          title: "N2",
+          body: "Body 2",
+          type: "MARKET_UPDATE",
+          isRead: true,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      meta: { page: 1, limit: 100, total: 2, totalPages: 1 },
+    },
+  }),
+  useMarkNotificationAsRead: () => ({ mutateAsync: vi.fn() }),
+  useMarkAllNotificationsAsRead: () => ({ mutateAsync: mockMarkAll }),
+  useDeleteNotification: () => ({ mutateAsync: vi.fn() }),
+}));
+
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -61,7 +96,6 @@ describe("NotificationsPage", () => {
     const markAllBtn = screen.getByText("Marcar todas como leídas");
     fireEvent.click(markAllBtn);
     
-    // After marking all as read, the button should disappear (since unreadCount becomes 0)
-    expect(screen.queryByText("Marcar todas como leídas")).not.toBeInTheDocument();
+    expect(mockMarkAll).toHaveBeenCalled();
   });
 });

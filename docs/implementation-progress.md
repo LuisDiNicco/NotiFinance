@@ -1260,3 +1260,47 @@ Comparación doc/rules vs implementación (F7):
   - Reemplazar funciones mock en frontend (`mockMarketData`, auth mockeada, CRUD mockeados) por llamadas reales a API.
   - Completar pruebas de extremo a extremo contra backend real.
   - Ejecutar auditoría de accesibilidad sobre entorno integrado.
+
+## Frontend — Post-plan (Integración real API) en progreso
+
+**Fecha:** 2026-02-27  
+**Estado:** 🟡 Iniciado (bloque Alerts + Notifications integrado)
+
+Implementado en frontend:
+- Página de alertas conectada a API real (`GET/POST/PATCH/DELETE /alerts`) con hooks de React Query y fallback a mocks cuando el backend no está disponible.
+- Página de notificaciones conectada a API real (`GET/PATCH/DELETE /notifications`) con acciones de marcar leída, marcar todas y eliminar, manteniendo fallback local.
+- `NotificationBell` adaptada al response paginado de API y manteniendo actualización en tiempo real por WebSocket.
+- Hooks expandidos:
+  - `useAlerts`: query paginada + mutaciones (`create`, `update`, `changeStatus`, `delete`).
+  - `useNotifications`: query paginada + mutaciones (`markAsRead`, `markAllAsRead`, `delete`) y query de count.
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npx vitest run` (OK - 77/77)
+- ✅ `npm run build` (OK)
+
+### Auditoría de desvíos (docs vs implementación) — 2026-02-27
+
+Desvíos detectados durante la auditoría:
+- `WatchlistPage` y `PortfolioPage` seguían en modo mock local en lugar de consumir API real, pese a estar definidos en el plan como funcionalidades productivas.
+- `PortfolioDetailPage` no estaba conectado a endpoints de holdings/performance/distribution/trades.
+- `Watchlist` no estaba aplicando actualización en tiempo real de precios por WebSocket (`market:quote`).
+
+Correcciones aplicadas:
+- `watchlist` conectado a backend (`GET/POST/DELETE /watchlist`) mediante hooks dedicados con fallback a mock.
+- Enriquecimiento de items de watchlist con datos de activo/price/stats (`/assets/:ticker`, `/assets/:ticker/stats`).
+- Actualización en tiempo real de precios de watchlist por evento `market:quote`.
+- `portfolio` conectado a backend (`GET /portfolios`, `POST /portfolios`) con UI alineada al plan: cards de portfolios + dialog de creación.
+- `portfolio/[id]` conectado a backend (`/portfolios/:id/holdings`, `/performance`, `/distribution`, `/trades`) con fallback.
+- `AddTradeModal` extendido para permitir submit real mediante callback inyectable.
+
+Validación posterior a remediación:
+- ✅ `npm run lint` (OK)
+- ✅ `npx vitest run` (OK - 77/77)
+- ✅ `npm run build` (OK)
+
+### Cierre de jornada — 2026-02-27
+
+- Estado del repositorio funcional: frontend compila y suite unitaria en verde tras remediar desvíos contra documentación.
+- Estado del plan: integración real API avanzada en `alerts`, `notifications`, `watchlist`, `portfolio` y `portfolio/[id]` con fallback controlado.
+- Próximo bloque para continuar mañana: migrar completamente `dashboard` y `asset-detail` a datos reales y cerrar checklist manual QA/E2E integrado contra backend real.

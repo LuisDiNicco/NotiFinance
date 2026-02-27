@@ -28,7 +28,7 @@ vi.mock("@/hooks/useSocket", () => ({
 describe("NotificationBell", () => {
   it("does not render when not authenticated", () => {
     vi.mocked(useAuthStore).mockReturnValue({ isAuthenticated: false } as unknown as ReturnType<typeof useAuthStore>);
-    vi.mocked(useNotifications).mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
+    vi.mocked(useNotifications).mockReturnValue({ data: { data: [], meta: { page: 1, limit: 5, total: 0, totalPages: 1 } } } as ReturnType<typeof useNotifications>);
     vi.mocked(useSocket).mockReturnValue({ notificationSocket: { on: vi.fn(), off: vi.fn() } } as ReturnType<typeof useSocket>);
 
     const { container } = render(<NotificationBell />);
@@ -37,7 +37,7 @@ describe("NotificationBell", () => {
 
   it("renders when authenticated", () => {
     vi.mocked(useAuthStore).mockReturnValue({ isAuthenticated: true } as unknown as ReturnType<typeof useAuthStore>);
-    vi.mocked(useNotifications).mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
+    vi.mocked(useNotifications).mockReturnValue({ data: { data: [], meta: { page: 1, limit: 5, total: 0, totalPages: 1 } } } as ReturnType<typeof useNotifications>);
     vi.mocked(useSocket).mockReturnValue({ notificationSocket: { on: vi.fn(), off: vi.fn() } } as ReturnType<typeof useSocket>);
 
     render(<NotificationBell />);
