@@ -609,3 +609,45 @@ Base de comparación usada en esta matriz:
 - `docs/02-technical-specification.md` (sección WebSocket 7.1) usa nombres de campos legacy para `market:dollar/market:risk/market:quote` (`buy/sell/updatedAt`, `price`, etc.).
 - `docs/04-supplementary-specs.md` define el contrato detallado vigente (`buyPrice/sellPrice/timestamp`, `priceArs`, y evento `market:status`), que es el contrato que se implementó y validó.
 - Con esta base, el estado de cumplimiento contractual operativo queda en **100%** para endpoints/eventos del backend actual.
+
+## Frontend — Fase F1 (Project Setup) completada (2026-02-27)
+
+**Estado:** ✅ F1 completada con validación técnica y compliance de fase.
+
+Implementación realizada en esta fase:
+
+- Reemplazo de frontend legacy según plan:
+  - eliminadas carpetas `noticore-admin/` y `noticore-client/`.
+  - creado nuevo proyecto `notifinance-frontend/` con Next.js App Router + TypeScript + Tailwind + ESLint.
+- Stack F1 instalado y configurado:
+  - dependencias core de datos/estado/form/ws (`@tanstack/react-query`, `axios`, `socket.io-client`, `zustand`, `react-hook-form`, `zod`, etc.).
+  - setup de `shadcn` con base color `slate`.
+  - nota: componente `toast` de shadcn deprecado; se usa `sonner` como reemplazo oficial.
+- Estructura base alineada a spec técnica:
+  - rutas base públicas/protegidas creadas en `src/app` (placeholders sin lógica de fases posteriores).
+  - carpetas técnicas creadas: `hooks/`, `providers/`, `stores/`, `types/`, `components/*`.
+- Fundación técnica F1 implementada:
+  - `QueryProvider`, `ThemeProvider`, `SocketProvider` conectados en root layout.
+  - `apiClient` con interceptores (token bearer, refresh automático, manejo de 401).
+  - `socket` client para namespaces `/market` y `/notifications`.
+  - stores Zustand: auth/theme.
+  - tipos iniciales API y dominio frontend (market/portfolio/alert/notification).
+  - helpers de formato en `lib/format.ts`.
+  - `/` redirige a `/dashboard`.
+  - `.env.local.example` agregado para URLs de API y WS.
+
+Loop de validación de fase (compliance flow):
+
+- Iteración 1:
+  - se detectaron desvíos en lint (`eslint-config-next`) y ausencia de script `test`.
+  - se corrigió configuración ESLint, se agregó Vitest + Testing Library, alias `@` en vitest y test inicial de helpers.
+- Iteración 2 (cierre):
+  - ✅ `npm run lint` (OK, sin warnings)
+  - ✅ `npm run test` (OK)
+  - ✅ `npm run build` (OK)
+
+Comparación doc/rules vs implementación (F1):
+
+- ✅ Checklist F1 de `docs/03-implementation-plan.md` cubierto.
+- ✅ Estructura base de `docs/02-technical-specification.md` iniciada y preparada para F2+.
+- ✅ Reglas de desarrollo aplicadas con tipado estricto, separación de responsabilidades y validación de fase previa al avance.
