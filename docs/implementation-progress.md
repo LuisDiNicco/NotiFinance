@@ -1,15 +1,53 @@
 # NotiFinance — Implementation Progress
 
-**Fecha:** 2026-02-26  
-**Scope actual:** Backend Fases B1–B9 (B9 Documentation & Polish completada)
+**Fecha:** 2026-02-27
+**Scope actual:** Frontend Fase F2 (Layout & Navigation) completada
 
 ## Estado general
 
-- Plan total: **cerrado (backend scope B1–B9 + hardening final)**
-- Fase actual: **cierre técnico backend** completado
-- Última fase cerrada: **B9 + hardening final de calidad**
+- Plan total: **Backend cerrado, Frontend en progreso**
+- Fase actual: **Frontend F2 completada**
+- Última fase cerrada: **Frontend F2**
 
-## Fases completadas
+## Fases completadas (Frontend)
+
+### ✅ F1 — Project Setup & Foundation
+
+Implementado en frontend:
+- Scaffold de Next.js 15 (App Router)
+- Configuración de Tailwind CSS v4 y shadcn/ui
+- Configuración de Zustand (authStore, themeStore)
+- Configuración de TanStack Query (React Query)
+- Configuración de Socket.io-client
+- Configuración de Axios con interceptores (JWT refresh)
+- Configuración de Vitest y ESLint 9 (Flat Config)
+- Estructura base de providers y layouts
+- Rutas placeholder para todas las páginas
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test` (OK)
+- ✅ `npm run build` (OK)
+
+### ✅ F2 — Layout & Navigation
+
+Implementado en frontend:
+- Root layout (`app/layout.tsx`) con Inter font, metadata y providers
+- Componente `Sidebar` con navegación pública y protegida
+- Componente `MobileSidebar` (Sheet) para responsive
+- Componente `Header` con barra superior
+- Componente `ThemeToggle` para dark/light mode
+- Componente `NotificationBell` con badge de no leídos
+- Componente `UserMenu` con avatar y opciones de sesión
+- Componente `CommandPalette` (Ctrl+K) con debounce y búsqueda agrupada
+- Tests unitarios para componentes de layout (`Sidebar`, `UserMenu`, `NotificationBell`)
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test` (OK)
+- ✅ `npm run build` (OK)
+
+## Fases completadas (Backend)
 
 ### ✅ B1 — Foundation & Auth
 
