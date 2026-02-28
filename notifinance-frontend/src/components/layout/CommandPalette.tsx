@@ -17,21 +17,16 @@ import {
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 
-// Mock data for now, will be replaced with API call
-const mockResults = [
-  { id: "1", type: "accion", symbol: "GGAL", name: "Grupo Financiero Galicia", icon: TrendingUp },
-  { id: "2", type: "accion", symbol: "YPFD", name: "YPF S.A.", icon: TrendingUp },
-  { id: "3", type: "cedear", symbol: "AAPL", name: "Apple Inc.", icon: Globe },
-  { id: "4", type: "cedear", symbol: "MSFT", name: "Microsoft Corp.", icon: Globe },
-  { id: "5", type: "bono", symbol: "AL30", name: "Bono Rep. Argentina USD 2030", icon: Landmark },
-];
-
 interface SearchItem {
   id: string;
   type: "accion" | "cedear" | "bono";
   symbol: string;
   name: string;
 }
+
+type SearchResultItem = SearchItem & {
+  icon: typeof TrendingUp;
+};
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
@@ -70,10 +65,10 @@ export function CommandPalette() {
   const filteredResults = React.useMemo(() => {
     if (!debouncedQuery) return [];
 
-    const source =
-      data && data.length > 0
-        ? data.map((item) => ({ ...item, icon: item.type === "accion" ? TrendingUp : item.type === "cedear" ? Globe : Landmark }))
-        : mockResults;
+    const source: SearchResultItem[] = (data ?? []).map((item) => ({
+      ...item,
+      icon: item.type === "accion" ? TrendingUp : item.type === "cedear" ? Globe : Landmark,
+    }));
 
     return source.filter(
       (item) =>
@@ -88,7 +83,7 @@ export function CommandPalette() {
   }, []);
 
   const groupedResults = React.useMemo(() => {
-    const groups: Record<string, typeof mockResults> = {
+    const groups: Record<string, SearchResultItem[]> = {
       Acciones: [],
       CEDEARs: [],
       Bonos: [],

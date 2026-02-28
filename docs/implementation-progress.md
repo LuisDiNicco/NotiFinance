@@ -129,6 +129,7 @@ Implementado:
   - estrategia tolerante a fallas parciales (`Promise.allSettled`) para no romper toda la vista por un endpoint aislado.
 - Eliminados fallbacks de datos mock en runtime (solo queda mock en tests):
   - alerts, notifications, portfolio, portfolio detail y notification bell.
+  - command palette: búsqueda solo con API real, sin resultados de demo cuando falla o no hay coincidencias.
   - comportamiento actual: datos reales o error explícito, sin inventar precios.
 
 Validación:
