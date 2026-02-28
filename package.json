@@ -10,11 +10,12 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "setup:dev": "npm run docker:up",
+    "kill:port": "powershell -ExecutionPolicy Bypass -File ./scripts/kill-port-3000.ps1",
     "build": "npm run docker:up && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "npm run docker:up && nest start --watch",
-    "start:debug": "npm run docker:up && nest start --debug --watch",
+    "start:dev": "npm run kill:port && npm run docker:up && nest start --watch",
+    "start:debug": "npm run kill:port && npm run docker:up && nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
@@ -25,7 +26,12 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
-    "test:e2e:cov": "jest --config ./test/jest-e2e.json --coverage --runInBand"
+    "test:e2e:cov": "jest --config ./test/jest-e2e.json --coverage --runInBand",
+    "test:smoke:endpoints": "node scripts/endpoint-smoke.js",
+    "test:quality:market": "node scripts/market-data-quality.js",
+    "test:quality:assets": "node scripts/market-assets-quality.js",
+    "verify:backend": "npm run build && npm run lint && npm run test -- --runInBand",
+    "verify:backend:runtime": "npm run test:smoke:endpoints && npm run test:quality:market && npm run test:quality:assets"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^3.1.0",
