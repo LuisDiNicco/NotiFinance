@@ -138,6 +138,28 @@ Validación:
 - ✅ Frontend `npm run build` (OK)
 - ✅ Backend runtime `npm run verify:backend:runtime` (OK)
 
+## Snapshot de resiliencia de datos reales (2026-02-28)
+
+Implementado:
+- Frontend reforzado para no romper por shape/parcialidad de APIs:
+  - `useMarketData` ahora aplica parseo defensivo y fallback a último snapshot real cacheado (`localStorage`) en dashboard.
+  - instrumentos destacados para carga inicial en dashboard: `MERV`, `GGAL`, `YPFD`, `AL30` (símbolos fijos, precios siempre reales desde API).
+  - `useAssetsCatalog` y `useAssetDetail` guardan/recuperan último dato real ante fallas transitorias de red.
+  - `useWatchlist` eliminado fallback inventado por `assetId`; solo muestra activos resolubles con precio real.
+- Limpieza de runtime:
+  - eliminados archivos `mock*.ts` del frontend para evitar reintroducción accidental de datos ficticios.
+- Backend de quotes más tolerante a fallas de origen:
+  - `Data912QuoteClient` pasó a `Promise.allSettled` por fuente (si cae una API, usa las demás).
+  - descarte de filas sin precio utilizable (`c`, `px_bid`, `px_ask`) y error explícito solo cuando no hay snapshot válido.
+  - fallback provider de cotizaciones cambiado a `YahooFinanceClient` (sin dependencia obligatoria de API key).
+
+Validación:
+- ✅ Frontend `npm run lint` (OK)
+- ✅ Frontend `npm run test` (OK — 28/28 files, 77/77 tests)
+- ✅ Frontend `npm run build` (OK)
+- ✅ Backend unit focal `npm run test:unit -- MarketDataService.spec.ts --coverage=false` (OK — 37/37 tests)
+- ✅ Backend `npx nest build` (OK)
+
 ## Fases completadas (Frontend)
 
 ### ✅ F1 — Project Setup & Foundation
