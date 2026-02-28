@@ -2,6 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 import { CountryRisk, DollarQuote, MarketIndex, MarketStatus, TopMover } from "@/types/market";
 
+const DASHBOARD_CACHE_KEY = "market:dashboard:last-real";
+
+const FEATURED_INSTRUMENTS = [
+  { symbol: "MERV", name: "S&P Merval" },
+  { symbol: "GGAL", name: "Grupo Financiero Galicia" },
+  { symbol: "YPFD", name: "YPF" },
+  { symbol: "AL30", name: "Bono AL30" },
+] as const;
+
 interface MarketSummaryResponse {
   risk: {
     value: number;
@@ -58,25 +67,123 @@ interface DashboardData {
   marketStatus: MarketStatus;
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function asFiniteNumber(value: unknown, fallback = 0): number {
+  return isFiniteNumber(value) ? value : fallback;
+}
+
+function loadDashboardCache(): DashboardData | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(DASHBOARD_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    return JSON.parse(raw) as DashboardData;
+  } catch {
+    return null;
+  }
+}
+
+function saveDashboardCache(data: DashboardData): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // no-op
+  }
+}
+
+function mapRiskHistory(
+  riskHistoryData: unknown,
+): { time: string; value: number }[] {
+  if (!Array.isArray(riskHistoryData)) {
+    return [];
+  }
+
+  return riskHistoryData
+    .map((point) => {
+      const candidate = point as Partial<RiskHistoryPoint>;
+      const rawTimestamp =
+        typeof candidate.timestamp === "string" && candidate.timestamp.length > 0
+          ? candidate.timestamp
+          : new Date().toISOString();
+
+      return {
+        time: rawTimestamp.split("T")[0],
+        value: asFiniteNumber(candidate.value, 0),
+      };
+    })
+    .filter((point) => point.value > 0);
+}
+
+function mapDollarQuotes(payload: unknown): DollarQuote[] {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload
+    .map((item): DollarQuote | null => {
+      const quote = item as Partial<DollarQuote>;
+      const buyPrice = asFiniteNumber(quote.buyPrice, 0);
+      const sellPrice = asFiniteNumber(quote.sellPrice, 0);
+
+      if (buyPrice <= 0 && sellPrice <= 0) {
+        return null;
+      }
+
+      return {
+        type: String(quote.type ?? "UNKNOWN"),
+        buyPrice,
+        sellPrice,
+        spread: asFiniteNumber(quote.spread, 0),
+        source: String(quote.source ?? "unknown"),
+        timestamp:
+          typeof quote.timestamp === "string" && quote.timestamp.length > 0
+            ? quote.timestamp
+            : new Date().toISOString(),
+      };
+    })
+    .filter((quote): quote is DollarQuote => quote !== null);
+}
+
 function mapTopMovers(
-  payload: TopMoversApiResponse,
+  payload: unknown,
   type: TopMover["type"],
 ): { gainers: TopMover[]; losers: TopMover[] } {
+  const safePayload = payload as Partial<TopMoversApiResponse>;
+  const gainers = Array.isArray(safePayload.gainers) ? safePayload.gainers : [];
+  const losers = Array.isArray(safePayload.losers) ? safePayload.losers : [];
+
   return {
-    gainers: payload.gainers.map((item) => ({
+    gainers: gainers
+      .map((item) => ({
       symbol: item.asset.ticker,
       name: item.asset.name,
       price: Number(item.quote.priceArs ?? 0),
       variation: Number(item.quote.changePct ?? 0),
       type,
-    })),
-    losers: payload.losers.map((item) => ({
+      }))
+      .filter((item) => item.price > 0),
+    losers: losers
+      .map((item) => ({
       symbol: item.asset.ticker,
       name: item.asset.name,
       price: Number(item.quote.priceArs ?? 0),
       variation: Number(item.quote.changePct ?? 0),
       type,
-    })),
+      }))
+      .filter((item) => item.price > 0),
   };
 }
 
@@ -94,9 +201,12 @@ export function useDashboardData() {
   return useQuery({
     queryKey: ["market", "dashboard"],
     queryFn: async (): Promise<DashboardData> => {
+      const cached = loadDashboardCache();
+
       const [
         dollarResponse,
         summaryResponse,
+        riskResponse,
         riskHistoryResponse,
         statusResponse,
         stockTopMoversResponse,
@@ -104,6 +214,7 @@ export function useDashboardData() {
       ] = await Promise.allSettled([
         apiClient.get<{ data: DollarQuote[] }>("/market/dollar"),
         apiClient.get<MarketSummaryResponse>("/market/summary"),
+        apiClient.get<CountryRisk>("/market/risk"),
         apiClient.get<RiskHistoryPoint[]>("/market/risk/history", {
           params: { days: 30 },
         }),
@@ -122,10 +233,13 @@ export function useDashboardData() {
         statusResponse.status === "fulfilled"
           ? statusResponse.value.data
           : summaryData?.marketStatus ?? null;
-      const riskHistoryData =
-        riskHistoryResponse.status === "fulfilled" ? riskHistoryResponse.value.data : [];
-      const dollarData =
-        dollarResponse.status === "fulfilled" ? dollarResponse.value.data.data : [];
+      const riskData = riskResponse.status === "fulfilled" ? riskResponse.value.data : null;
+      const riskHistoryData = mapRiskHistory(
+        riskHistoryResponse.status === "fulfilled" ? riskHistoryResponse.value.data : [],
+      );
+      const dollarData = mapDollarQuotes(
+        dollarResponse.status === "fulfilled" ? dollarResponse.value.data.data : [],
+      );
       const stockTopMoversData =
         stockTopMoversResponse.status === "fulfilled"
           ? stockTopMoversResponse.value.data
@@ -135,15 +249,8 @@ export function useDashboardData() {
           ? cedearTopMoversResponse.value.data
           : { gainers: [], losers: [] };
 
-      const indexTickers = [
-        { symbol: "MERV", name: "S&P Merval" },
-        { symbol: "SPX", name: "S&P 500" },
-        { symbol: "NDX", name: "Nasdaq" },
-        { symbol: "DJI", name: "Dow Jones" },
-      ] as const;
-
       const indicesRaw = await Promise.all(
-        indexTickers.map(async (index): Promise<MarketIndex | null> => {
+        FEATURED_INSTRUMENTS.map(async (index): Promise<MarketIndex | null> => {
           try {
             const [statsResponse, quotesResponse] = await Promise.all([
               apiClient.get<AssetStatsResponse>(`/assets/${index.symbol}/stats`, {
@@ -167,7 +274,7 @@ export function useDashboardData() {
                 .filter((point) => point.value > 0),
             };
           } catch {
-            return null;
+            return cached?.indices.find((cachedIndex) => cachedIndex.symbol === index.symbol) ?? null;
           }
         }),
       );
@@ -181,28 +288,40 @@ export function useDashboardData() {
         };
       const nextChange = marketStatusRaw.isOpen ? marketStatusRaw.closesAt : marketStatusRaw.nextOpen;
 
-      return {
-        dollarQuotes: dollarData,
-        countryRisk: {
-          value: Number(summaryData?.risk.value ?? 0),
-          changePct: Number(summaryData?.risk.changePct ?? 0),
-          previousValue: null,
-          timestamp: new Date().toISOString(),
-        },
-        riskHistory: riskHistoryData.map((point) => ({
-          time: typeof point.timestamp === "string" ? point.timestamp.split("T")[0] : new Date().toISOString().split("T")[0],
-          value: Number(point.value ?? 0),
-        })),
-        indices,
+      const latestRiskFromHistory = riskHistoryData.at(-1)?.value;
+      const countryRisk: CountryRisk = {
+        value: asFiniteNumber(
+          riskData?.value ?? summaryData?.risk?.value ?? latestRiskFromHistory,
+          cached?.countryRisk.value ?? 0,
+        ),
+        changePct: asFiniteNumber(
+          riskData?.changePct ?? summaryData?.risk?.changePct,
+          cached?.countryRisk.changePct ?? 0,
+        ),
+        previousValue: asFiniteNumber(riskData?.previousValue, cached?.countryRisk.previousValue ?? 0),
+        timestamp:
+          typeof riskData?.timestamp === "string" && riskData.timestamp.length > 0
+            ? riskData.timestamp
+            : cached?.countryRisk.timestamp ?? new Date().toISOString(),
+      };
+
+      const result: DashboardData = {
+        dollarQuotes: dollarData.length > 0 ? dollarData : cached?.dollarQuotes ?? [],
+        countryRisk,
+        riskHistory: riskHistoryData.length > 0 ? riskHistoryData : cached?.riskHistory ?? [],
+        indices: indices.length > 0 ? indices : cached?.indices ?? [],
         topMovers: {
           acciones: mapTopMovers(stockTopMoversData, "STOCK"),
           cedears: mapTopMovers(cedearTopMoversData, "CEDEAR"),
         },
         marketStatus: {
           isOpen: marketStatusRaw.isOpen,
-          nextChange: nextChange ?? new Date().toISOString(),
+          nextChange: nextChange ?? cached?.marketStatus.nextChange ?? new Date().toISOString(),
         },
       };
+
+      saveDashboardCache(result);
+      return result;
     },
     staleTime: 30_000,
   });

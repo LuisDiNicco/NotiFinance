@@ -7,21 +7,35 @@ import { IndexCards } from "@/components/dashboard/IndexCards";
 import { TopMoversTable } from "@/components/dashboard/TopMoversTable";
 import { WatchlistWidget } from "@/components/dashboard/WatchlistWidget";
 import { useAuthStore } from "@/stores/authStore";
-import {
-  mockDollarQuotes,
-  mockCountryRisk,
-  mockRiskHistory,
-  mockIndices,
-  mockTopMovers,
-  mockMarketStatus,
-  mockWatchlist,
-} from "@/services/mockMarketData";
+import { useDashboardData } from "@/hooks/useMarketData";
+import { useWatchlist } from "@/hooks/useWatchlist";
 
 export default function DashboardPage() {
   const { isAuthenticated } = useAuthStore();
+  const { data, isLoading } = useDashboardData();
+  const { data: watchlistData } = useWatchlist(isAuthenticated);
 
-  // Mock watchlist data for authenticated users
-  const watchlist = isAuthenticated ? mockWatchlist : [];
+  const watchlist = isAuthenticated ? (watchlistData ?? []) : [];
+
+  const dashboardData = data;
+
+  if (isLoading) {
+    return (
+      <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 p-6">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Cargando datos de mercado en tiempo real...</p>
+      </main>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 p-6">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Todavía no hay datos de mercado disponibles.</p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 p-6">
@@ -32,19 +46,19 @@ export default function DashboardPage() {
             Resumen del mercado financiero argentino
           </p>
         </div>
-        <MarketStatusBadge status={mockMarketStatus} />
+        <MarketStatusBadge status={dashboardData.marketStatus} />
       </div>
 
-      <DollarPanel initialData={mockDollarQuotes} />
+      <DollarPanel initialData={dashboardData.dollarQuotes} />
 
-      <IndexCards indices={mockIndices} />
+      <IndexCards indices={dashboardData.indices} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <TopMoversTable data={mockTopMovers} />
+          <TopMoversTable data={dashboardData.topMovers} />
         </div>
         <div className="flex flex-col gap-6">
-          <RiskCountryCard initialData={mockCountryRisk} historyData={mockRiskHistory} />
+          <RiskCountryCard initialData={dashboardData.countryRisk} historyData={dashboardData.riskHistory} />
           {isAuthenticated && <WatchlistWidget items={watchlist} />}
         </div>
       </div>
