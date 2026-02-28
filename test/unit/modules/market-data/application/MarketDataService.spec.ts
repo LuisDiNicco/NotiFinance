@@ -44,6 +44,7 @@ import { DollarQuote } from '../../../../../src/modules/market-data/domain/entit
 import { DollarType } from '../../../../../src/modules/market-data/domain/enums/DollarType';
 import { CountryRisk } from '../../../../../src/modules/market-data/domain/entities/CountryRisk';
 import { AssetNotFoundError } from '../../../../../src/modules/market-data/domain/errors/AssetNotFoundError';
+import { MarketDataUnavailableError } from '../../../../../src/modules/market-data/domain/errors/MarketDataUnavailableError';
 import { MarketQuote } from '../../../../../src/modules/market-data/domain/entities/MarketQuote';
 
 describe('MarketDataService', () => {
@@ -63,6 +64,7 @@ describe('MarketDataService', () => {
   beforeEach(async () => {
     assetRepository = {
       findAll: jest.fn(),
+      findPaginated: jest.fn(),
       findByTicker: jest.fn(),
       search: jest.fn(),
     };
@@ -311,11 +313,13 @@ describe('MarketDataService', () => {
     expect(result).toEqual(persisted);
   });
 
-  it('throws original error when risk provider fails and no persisted value exists', async () => {
+  it('throws MarketDataUnavailableError when risk provider fails and no persisted value exists', async () => {
     riskProvider.fetchCountryRisk.mockRejectedValue(new Error('provider down'));
     countryRiskRepository.findLatest.mockResolvedValue(null);
 
-    await expect(service.getCountryRisk()).rejects.toThrow('provider down');
+    await expect(service.getCountryRisk()).rejects.toBeInstanceOf(
+      MarketDataUnavailableError,
+    );
   });
 
   it('returns and persists historical quotes for an asset', async () => {
@@ -392,7 +396,7 @@ describe('MarketDataService', () => {
     expect(result).toEqual(persisted);
   });
 
-  it('throws original error when provider fails and persisted historical quotes are empty', async () => {
+  it('throws MarketDataUnavailableError when provider fails and persisted historical quotes are empty', async () => {
     const asset = new Asset(
       'GGAL',
       'Galicia',
@@ -406,12 +410,12 @@ describe('MarketDataService', () => {
     quoteProvider.fetchHistorical.mockRejectedValue(new Error('provider down'));
     quoteRepository.findByAssetAndPeriod.mockResolvedValue([]);
 
-    await expect(service.getAssetQuotes('GGAL', 15)).rejects.toThrow(
-      'provider down',
+    await expect(service.getAssetQuotes('GGAL', 15)).rejects.toBeInstanceOf(
+      MarketDataUnavailableError,
     );
   });
 
-  it('throws original error when provider fails and asset has no id', async () => {
+  it('throws MarketDataUnavailableError when provider fails and asset has no id', async () => {
     const asset = new Asset(
       'GGAL',
       'Galicia',
@@ -422,8 +426,8 @@ describe('MarketDataService', () => {
     assetRepository.findByTicker.mockResolvedValue(asset);
     quoteProvider.fetchHistorical.mockRejectedValue(new Error('provider down'));
 
-    await expect(service.getAssetQuotes('GGAL', 15)).rejects.toThrow(
-      'provider down',
+    await expect(service.getAssetQuotes('GGAL', 15)).rejects.toBeInstanceOf(
+      MarketDataUnavailableError,
     );
   });
 

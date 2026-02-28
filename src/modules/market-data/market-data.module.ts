@@ -23,10 +23,10 @@ import { AssetEntity } from './infrastructure/secondary-adapters/database/entiti
 import { DollarQuoteEntity } from './infrastructure/secondary-adapters/database/entities/DollarQuoteEntity';
 import { CountryRiskEntity } from './infrastructure/secondary-adapters/database/entities/CountryRiskEntity';
 import { MarketQuoteEntity } from './infrastructure/secondary-adapters/database/entities/MarketQuoteEntity';
-import { DolarApiClient } from './infrastructure/secondary-adapters/http/clients/DolarApiClient';
 import { RiskProviderClient } from './infrastructure/secondary-adapters/http/clients/RiskProviderClient';
+import { Data912QuoteClient } from './infrastructure/secondary-adapters/http/clients/Data912QuoteClient';
 import { YahooFinanceClient } from './infrastructure/secondary-adapters/http/clients/YahooFinanceClient';
-import { AlphaVantageClient } from './infrastructure/secondary-adapters/http/clients/AlphaVantageClient';
+import { MultiSourceDollarClient } from './infrastructure/secondary-adapters/http/clients/MultiSourceDollarClient';
 import { MarketController } from './infrastructure/primary-adapters/http/controllers/MarketController';
 import { AssetController } from './infrastructure/primary-adapters/http/controllers/AssetController';
 import { SearchController } from './infrastructure/primary-adapters/http/controllers/SearchController';
@@ -70,7 +70,7 @@ import { MarketGateway } from './infrastructure/secondary-adapters/websockets/Ma
     },
     {
       provide: DOLLAR_PROVIDER,
-      useClass: DolarApiClient,
+      useClass: MultiSourceDollarClient,
     },
     {
       provide: RISK_PROVIDER,
@@ -78,11 +78,11 @@ import { MarketGateway } from './infrastructure/secondary-adapters/websockets/Ma
     },
     {
       provide: QUOTE_PROVIDER,
-      useClass: YahooFinanceClient,
+      useClass: Data912QuoteClient,
     },
     {
       provide: QUOTE_FALLBACK_PROVIDER,
-      useClass: AlphaVantageClient,
+      useClass: YahooFinanceClient,
     },
     {
       provide: MARKET_CACHE,
