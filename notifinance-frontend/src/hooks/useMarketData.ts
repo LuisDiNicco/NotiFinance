@@ -190,7 +190,7 @@ export function useDashboardData() {
           timestamp: new Date().toISOString(),
         },
         riskHistory: riskHistoryData.map((point) => ({
-          time: point.timestamp.split("T")[0],
+          time: typeof point.timestamp === "string" ? point.timestamp.split("T")[0] : new Date().toISOString().split("T")[0],
           value: Number(point.value ?? 0),
         })),
         indices,
