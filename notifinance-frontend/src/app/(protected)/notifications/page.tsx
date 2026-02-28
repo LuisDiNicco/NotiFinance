@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Notification } from "@/types/notification";
-import { mockNotifications } from "@/services/mockNotificationsData";
 import {
   useDeleteNotification,
   useMarkAllNotificationsAsRead,
@@ -18,7 +17,6 @@ import { toast } from "sonner";
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [fallbackNotifications, setFallbackNotifications] = useState<Notification[]>(mockNotifications);
   const [activeTab, setActiveTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
@@ -27,10 +25,7 @@ export default function NotificationsPage() {
   const markAllMutation = useMarkAllNotificationsAsRead();
   const deleteMutation = useDeleteNotification();
 
-  const usingFallback = notificationsQuery.isError;
-  const notifications = usingFallback
-    ? fallbackNotifications
-    : ((notificationsQuery.data?.data as Notification[] | undefined) ?? []);
+  const notifications = (notificationsQuery.data?.data as Notification[] | undefined) ?? [];
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -48,13 +43,6 @@ export default function NotificationsPage() {
   }, [filteredNotifications, currentPage]);
 
   const handleMarkAsRead = async (id: string) => {
-    if (usingFallback) {
-      setFallbackNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
-      );
-      return;
-    }
-
     try {
       await markAsReadMutation.mutateAsync(id);
     } catch {
@@ -63,12 +51,6 @@ export default function NotificationsPage() {
   };
 
   const handleMarkAllAsRead = async () => {
-    if (usingFallback) {
-      setFallbackNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      toast.success("Todas las notificaciones marcadas como leídas");
-      return;
-    }
-
     try {
       await markAllMutation.mutateAsync();
       toast.success("Todas las notificaciones marcadas como leídas");
@@ -78,12 +60,6 @@ export default function NotificationsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (usingFallback) {
-      setFallbackNotifications((prev) => prev.filter((n) => n.id !== id));
-      toast.success("Notificación eliminada");
-      return;
-    }
-
     try {
       await deleteMutation.mutateAsync(id);
       toast.success("Notificación eliminada");
@@ -151,9 +127,13 @@ export default function NotificationsPage() {
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-0 space-y-4">
-          {notificationsQuery.isLoading && !usingFallback ? (
+          {notificationsQuery.isLoading ? (
             <div className="flex items-center justify-center rounded-lg border bg-muted/10 py-10 text-sm text-muted-foreground">
               Cargando notificaciones...
+            </div>
+          ) : notificationsQuery.isError ? (
+            <div className="flex items-center justify-center rounded-lg border bg-muted/10 py-10 text-sm text-destructive">
+              No se pudieron cargar notificaciones confiables. Reintentá en unos segundos.
             </div>
           ) : filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-muted/10">

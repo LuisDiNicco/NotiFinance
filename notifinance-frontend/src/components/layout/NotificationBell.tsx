@@ -17,7 +17,6 @@ import Link from "next/link";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useSocket } from "@/hooks/useSocket";
 import { Notification } from "@/types/notification";
-import { mockNotifications } from "@/services/mockNotificationsData";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
@@ -31,7 +30,7 @@ export function NotificationBell() {
   const [liveNotifications, setLiveNotifications] = useState<Notification[]>([]);
 
   const notifications = useMemo(
-    () => (data?.data && data.data.length > 0 ? (data.data as Notification[]) : mockNotifications),
+    () => ((data?.data as Notification[] | undefined) ?? []),
     [data],
   );
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { mockPortfolios } from "@/services/mockPortfolioData";
 import { useCreatePortfolio, usePortfolio } from "@/hooks/usePortfolio";
 import { PortfolioSummary } from "@/components/portfolio/PortfolioSummary";
 import { Button } from "@/components/ui/button";
@@ -27,8 +26,7 @@ export default function PortfolioPage() {
   const portfolioQuery = usePortfolio();
   const createPortfolioMutation = useCreatePortfolio();
 
-  const usingFallback = portfolioQuery.isError;
-  const portfolios = usingFallback ? mockPortfolios : (portfolioQuery.data ?? []);
+  const portfolios = portfolioQuery.data ?? [];
 
   const highlightedPortfolio = portfolios[0] ?? null;
 
@@ -36,14 +34,6 @@ export default function PortfolioPage() {
     const name = portfolioName.trim();
     if (!name) {
       toast.error("Ingresá un nombre para el portfolio");
-      return;
-    }
-
-    if (usingFallback) {
-      toast.info("Modo demo: creación disponible al conectar con backend");
-      setCreateDialogOpen(false);
-      setPortfolioName("");
-      setPortfolioDescription("");
       return;
     }
 
@@ -76,9 +66,13 @@ export default function PortfolioPage() {
         </Button>
       </div>
 
-      {portfolioQuery.isLoading && !usingFallback ? (
+      {portfolioQuery.isLoading ? (
         <div className="flex h-24 items-center justify-center rounded-md border text-sm text-muted-foreground">
           Cargando portfolios...
+        </div>
+      ) : portfolioQuery.isError ? (
+        <div className="flex h-24 items-center justify-center rounded-md border text-sm text-destructive">
+          No se pudieron cargar portfolios confiables. Reintentá en unos segundos.
         </div>
       ) : null}
 

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockPortfolios, mockHoldings, mockPortfolioHistory, mockTrades } from "@/services/mockPortfolioData";
 import { PortfolioSummary } from "@/components/portfolio/PortfolioSummary";
 import { HoldingsTable } from "@/components/portfolio/HoldingsTable";
 import { TradesHistory } from "@/components/portfolio/TradesHistory";
@@ -33,32 +32,30 @@ export function PortfolioDetailClient({ portfolioId }: PortfolioDetailClientProp
   const distributionQuery = usePortfolioDistribution(portfolioId);
   const recordTradeMutation = useRecordTrade(portfolioId);
 
-  const usingFallback =
+  const hasError =
     portfolioQuery.isError ||
     holdingsQuery.isError ||
     tradesQuery.isError ||
     performanceQuery.isError ||
     distributionQuery.isError;
 
-  const portfolio = usingFallback
-    ? mockPortfolios.find((item) => item.id === portfolioId)
-    : (portfolioQuery.data ?? []).find((item) => item.id === portfolioId);
+  const portfolio = (portfolioQuery.data ?? []).find((item) => item.id === portfolioId);
 
   const holdings = useMemo(
-    () => (usingFallback ? (mockHoldings[portfolioId] ?? []) : (holdingsQuery.data ?? [])),
-    [holdingsQuery.data, portfolioId, usingFallback],
+    () => holdingsQuery.data ?? [],
+    [holdingsQuery.data],
   );
   const trades = useMemo(
-    () => (usingFallback ? (mockTrades[portfolioId] ?? []) : (tradesQuery.data ?? [])),
-    [portfolioId, tradesQuery.data, usingFallback],
+    () => tradesQuery.data ?? [],
+    [tradesQuery.data],
   );
   const performanceData = useMemo(
-    () => (usingFallback ? mockPortfolioHistory : (performanceQuery.data ?? [])),
-    [performanceQuery.data, usingFallback],
+    () => performanceQuery.data ?? [],
+    [performanceQuery.data],
   );
 
   const distributionByType = useMemo(() => {
-    if (!usingFallback && distributionQuery.data) {
+    if (distributionQuery.data) {
       return distributionQuery.data.byType.reduce<Record<string, number>>((acc, item) => {
         acc[item.type] = item.weight;
         return acc;
@@ -70,6 +67,16 @@ export function PortfolioDetailClient({ portfolioId }: PortfolioDetailClientProp
       return acc;
     }, {});
   }, [distributionQuery.data, holdings, usingFallback]);
+
+  if (hasError) {
+    return (
+      <main className="mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center p-6">
+        <div className="rounded-md border px-4 py-3 text-sm text-destructive">
+          No se pudieron cargar datos confiables del portfolio.
+        </div>
+      </main>
+    );
+  }
 
   if (!portfolio) {
     return (
@@ -103,19 +110,15 @@ export function PortfolioDetailClient({ portfolioId }: PortfolioDetailClientProp
             <AddTradeModal
               portfolioId={portfolioId}
               onSubmitTrade={async (trade) => {
-                if (usingFallback) {
-                  return;
-                }
-
-                await recordTradeMutation.mutateAsync({
-                  ticker: trade.ticker,
-                  tradeType: trade.tradeType,
-                  quantity: trade.quantity,
-                  pricePerUnit: trade.pricePerUnit,
-                  currency: "ARS",
-                  commission: trade.commission,
-                  executedAt: trade.executedAt,
-                });
+                  await recordTradeMutation.mutateAsync({
+                    ticker: trade.ticker,
+                    tradeType: trade.tradeType,
+                    quantity: trade.quantity,
+                    pricePerUnit: trade.pricePerUnit,
+                    currency: "ARS",
+                    commission: trade.commission,
+                    executedAt: trade.executedAt,
+                  });
               }}
             />
           </div>
@@ -142,7 +145,7 @@ export function PortfolioDetailClient({ portfolioId }: PortfolioDetailClientProp
             ))}
           </div>
           <PerformanceChart data={performanceData} />
-          <p className="mt-3 text-sm text-muted-foreground">Benchmark overlay: Merval y Dólar MEP (modo mock).</p>
+          <p className="mt-3 text-sm text-muted-foreground">Benchmark overlay: Merval y Dólar MEP.</p>
         </TabsContent>
 
         <TabsContent value="distribution" className="mt-4">
