@@ -1,13 +1,141 @@
 # NotiFinance — Implementation Progress
 
-**Fecha:** 2026-02-27
-**Scope actual:** Frontend Fase F10 (Testing & Final QA) completada
+**Fecha:** 2026-02-28
+**Scope actual:** Frontend Post-plan (Integración real API) completado
 
 ## Estado general
 
-- Plan total: **Backend cerrado, Frontend completado**
-- Fase actual: **Frontend F10 completada**
-- Última fase cerrada: **Frontend F10**
+- Plan total: **Backend cerrado, Frontend completado + post-plan de integración real cerrado**
+- Fase actual: **Frontend Post-plan completado**
+- Última fase cerrada: **Frontend Post-plan (dashboard/assets/asset-detail)**
+
+## Snapshot de corrección runtime (2026-02-28)
+
+Implementado en backend:
+- Fix de bootstrap de migraciones TypeORM en `database.config.ts`:
+  - ruta de migraciones corregida para que `migrationsRun` ejecute las migrations reales al iniciar.
+- Fix en repositorio de riesgo país:
+  - `findOne` actualizado con `where` explícito para compatibilidad con TypeORM 0.3.
+- Hardening de proveedor de riesgo país:
+  - fallback agregado desde DolarApi a endpoint de Ámbito (`https://mercados.ambito.com/riesgopais/variacion-ultimo`) cuando el endpoint primario responde 404.
+
+Validación realizada:
+- ✅ `npm run build` (OK)
+- ✅ Runtime API validado en local con server levantado:
+  - `GET /api/v1/assets?type=CEDEAR&page=1&limit=5` → 200
+  - `GET /api/v1/market/status` → 200
+  - `GET /api/v1/market/risk` → 200
+  - `GET /api/v1/market/summary` → 200
+  - `GET /api/v1/market/risk/history?days=30` → 200
+  - `GET /api/v1/market/dollar` → 200
+
+## Snapshot de hardening de errores HTTP (2026-02-28)
+
+Implementado en backend:
+- Corrección del cliente `YahooFinanceClient` para inicialización compatible con `yahoo-finance2` actual.
+- Nuevo error de dominio `MarketDataUnavailableError` para fallas de proveedores sin fallback persistido.
+- Mapeo explícito en `CustomExceptionsFilter`:
+  - `MarketDataUnavailableError` → `503 Service Unavailable`
+  - `AxiosError` → `502 Bad Gateway`
+  - `QueryFailedError` → `503 Service Unavailable`
+- Hardening adicional de fechas en `MarketDataService` y `TypeOrmQuoteRepository` para evitar `RangeError: Invalid time value`.
+
+Validación realizada:
+- ✅ `npm run build` (OK)
+- ✅ `npm run lint` (OK)
+- ✅ `npm run test -- --runInBand` (OK — 20/20 suites, 124/124 tests)
+- ✅ Barrido integral de 55 endpoints (públicos y protegidos con/ sin auth): `FAIL500=0`
+
+## Snapshot de actualización de providers de mercado + automatización (2026-02-28)
+
+Implementado en backend:
+- Automatización de smoke tests HTTP:
+  - nuevo script `scripts/endpoint-smoke.js`
+  - nuevo comando `npm run test:smoke:endpoints`
+  - nuevo comando de gate técnico `npm run verify:backend`
+- Reemplazo de provider principal de cotizaciones (sin Yahoo):
+  - nuevo `Data912QuoteClient` consumiendo endpoints detectados en Acuantoesta:
+    - `https://data912.com/live/arg_stocks`
+    - `https://data912.com/live/arg_cedears`
+    - `https://data912.com/live/arg_bonds`
+    - `https://data912.com/live/arg_corp`
+  - wiring del módulo actualizado para usar `Data912QuoteClient` como `QUOTE_PROVIDER`
+- Riesgo país actualizado con fuentes vigentes:
+  - primario: `https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo`
+  - fallback 1: DolarApi
+  - fallback 2: Ámbito (`mercados.ambito.com`)
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run build` (OK)
+- ✅ `npm run test -- --runInBand` (OK — 20/20 suites, 124/124 tests)
+- ✅ `npm run test:smoke:endpoints` (OK — `FAIL500=0`)
+
+## Snapshot de consenso multi-fuente de dólar + QA de valores (2026-02-28)
+
+Implementado en backend:
+- Nuevo provider agregado de dólar `MultiSourceDollarClient`:
+  - fuentes activas: `dolarapi.com`, `api.bluelytics.com.ar`, `criptoya.com`
+  - consenso por tipo (`OFICIAL`, `BLUE`, `MEP`, `CCL`, `TARJETA`, `CRIPTO`) usando mediana de compra/venta
+  - filtro de outliers configurable (`DOLLAR_CONSENSUS_MAX_DEVIATION_PCT`, default `8`)
+  - filtro de frescura configurable (`DOLLAR_SOURCE_MAX_AGE_MINUTES`, default `2880`)
+  - rechazo de tipo cuando no hay al menos 2 fuentes frescas
+- Wiring actualizado en módulo de mercado:
+  - `DOLLAR_PROVIDER` ahora usa `MultiSourceDollarClient`
+- Configuración de mercado extendida:
+  - `BLUELYTICS_API_URL`
+  - `CRIPTOYA_API_URL`
+  - `DOLLAR_CONSENSUS_MAX_DEVIATION_PCT`
+  - `DOLLAR_SOURCE_MAX_AGE_MINUTES`
+- Nueva automatización de calidad de datos:
+  - script `scripts/market-data-quality.js`
+  - comando `npm run test:quality:market`
+  - comando de runtime `npm run verify:backend:runtime` (`smoke` + `quality`)
+
+Validación realizada:
+- ✅ `npm run lint` (OK)
+- ✅ `npm run build` (OK)
+- ✅ `npm run test -- --runInBand` (OK — 20/20 suites, 124/124 tests)
+- ✅ `npm run test:smoke:endpoints` (OK — `TOTAL=29`, `FAIL500=0`)
+- ✅ `npm run test:quality:market` (OK — `QUALITY_STATUS=OK`, contraste contra 3 APIs externas)
+
+## Snapshot de exactitud de datos end-to-end (2026-02-28)
+
+Implementado:
+- Frontend “accuracy-first” (sin datos mock cuando falla API):
+  - removidos fallbacks a `mock*` en hooks críticos de mercado y activos (`useMarketData`, `useAsset`).
+  - dashboard, catálogo de activos, categorías, detalle de activo y watchlist ahora muestran estados explícitos de carga/error en lugar de números ficticios.
+  - resultado: se evita mostrar cotizaciones fuera de magnitud (ej. valores legacy de mocks) cuando hay fallas de integración.
+- QA automatizada ampliada para activos:
+  - nuevo script `scripts/market-assets-quality.js`.
+  - nuevo comando `npm run test:quality:assets`.
+  - `npm run verify:backend:runtime` ahora ejecuta: `smoke + quality:market + quality:assets`.
+
+Validación:
+- ✅ Frontend `npm run lint` (OK)
+- ✅ Frontend `npm run test` (OK — 28/28 files, 77/77 tests)
+- ✅ Frontend `npm run build` (OK)
+- ✅ `npm run verify:backend:runtime` (OK — `FAIL500=0`, `QUALITY_STATUS=OK`, `ASSET_QUALITY_STATUS=OK`)
+
+## Snapshot de fiabilidad sin mocks runtime (2026-02-28)
+
+Implementado:
+- Corregido desalineamiento de contrato frontend/backend en dashboard:
+  - `useMarketData` ahora consume contratos reales:
+    - `GET /market/summary` para riesgo/estado,
+    - `GET /market/top-movers` (STOCK y CEDEAR) para movers,
+    - `GET /market/risk/history` para histórico,
+    - `GET /market/dollar` para cotizaciones.
+  - estrategia tolerante a fallas parciales (`Promise.allSettled`) para no romper toda la vista por un endpoint aislado.
+- Eliminados fallbacks de datos mock en runtime (solo queda mock en tests):
+  - alerts, notifications, portfolio, portfolio detail y notification bell.
+  - comportamiento actual: datos reales o error explícito, sin inventar precios.
+
+Validación:
+- ✅ Frontend `npm run lint` (OK)
+- ✅ Frontend `npm run test` (OK — 28/28 files, 77/77 tests)
+- ✅ Frontend `npm run build` (OK)
+- ✅ Backend runtime `npm run verify:backend:runtime` (OK)
 
 ## Fases completadas (Frontend)
 
@@ -1304,3 +1432,115 @@ Validación posterior a remediación:
 - Estado del repositorio funcional: frontend compila y suite unitaria en verde tras remediar desvíos contra documentación.
 - Estado del plan: integración real API avanzada en `alerts`, `notifications`, `watchlist`, `portfolio` y `portfolio/[id]` con fallback controlado.
 - Próximo bloque para continuar mañana: migrar completamente `dashboard` y `asset-detail` a datos reales y cerrar checklist manual QA/E2E integrado contra backend real.
+
+## Frontend — Post-plan (Integración real API) cerrado (2026-02-28)
+
+**Estado:** ✅ Cerrado (dashboard + assets + asset-detail migrados a API real).
+
+Auditoría inicial de cumplimiento (back + front):
+
+- Backend:
+  - ✅ tests backend en verde (`npm test -- --runInBand`: 20/20 suites, 124/124 tests).
+  - ✅ lint backend sin errores visibles.
+  - ⚠️ `npm run build` depende de Docker (`docker-setup.js`) y falla si daemon no está activo; no bloquea funcionalidad de código.
+- Frontend:
+  - Se detectaron desvíos activos respecto al plan post-plan: uso de mocks en `dashboard`, `assets`, categorías de assets y `asset-detail`.
+  - Se detectó inconsistencia de navegación: links a `/assets/acciones/[ticker]` y `/assets/cedears/[ticker]` sin ruta real implementada.
+
+Correcciones aplicadas en esta iteración:
+
+- Dashboard conectado a API real:
+  - nuevo hook `useDashboardData` en `src/hooks/useMarketData.ts` consumiendo `/market/dollar`, `/market/summary`, `/market/risk/history`, `/market/status`.
+  - `dashboard/page.tsx` migrado de `mockMarketData` a datos reales + watchlist real condicional por autenticación.
+- Assets y categorías conectados a API real:
+  - nuevo hook `useAssetsCatalog` en `src/hooks/useAsset.ts` consumiendo `/assets` + enriquecimiento por `/assets/:ticker/stats`.
+  - `assets/page.tsx` y `assets/_components/CategoryAssetsPage.tsx` migrados de `mockAssetsData` a catálogo real.
+- Asset detail conectado a API real:
+  - nuevo hook `useAssetDetail` en `src/hooks/useAsset.ts` consumiendo `/assets/:ticker`, `/stats`, `/quotes`, `/related`.
+  - `assets/[ticker]/page.tsx` migrado de mocks a hook real con fallback controlado.
+- Watchlist enriquecida correctamente por `assetId`:
+  - `useWatchlist.ts` ajustado para resolver ids vía catálogo paginado (`/assets`) y luego stats por ticker.
+  - evita lookup incorrecto previo usando UUID como ticker.
+- Navegación corregida:
+  - `TopMoversTable` y `WatchlistWidget` ahora navegan a `/assets/[ticker]` (ruta existente).
+
+Validación de cierre de iteración:
+
+- ✅ `cd notifinance-frontend && npm run lint` (OK)
+- ✅ `cd notifinance-frontend && npm run test` (OK — 28/28 files, 77/77 tests)
+- ✅ `cd notifinance-frontend && npm run build` (OK)
+- ✅ `cd notifinance-frontend && npx playwright test --reporter=line --timeout=45000 --workers=1` (OK — 3/3)
+
+Resultado:
+
+- ✅ Desvíos de fases previas detectados en frontend post-plan fueron corregidos.
+- ✅ Próxima fase pendiente registrada en este archivo (dashboard + asset-detail + QA integrado) quedó cerrada.
+
+## Iteración de compliance adicional (2026-02-28, Docker activo)
+
+**Estado:** ✅ Auditoría completa en verde, sin nuevas fases funcionales pendientes en el plan vigente.
+
+Contexto de la iteración:
+
+- Se ejecutó una nueva auditoría integral siguiendo `.github/copilot-instructions.md`.
+- Docker daemon confirmado activo durante la validación.
+
+Hallazgo y corrección técnica aplicada:
+
+- Se detectó desvío en build backend (`npm run build`) por compilación cruzada del frontend desde el `tsconfig` raíz.
+- Correcciones mínimas aplicadas:
+  - exclusión explícita de `notifinance-frontend` en `tsconfig.json` y `tsconfig.build.json`;
+  - ajuste de tipado en `AssetController.getAssets` para compatibilidad con `exactOptionalPropertyTypes` al invocar `getAssetsPaginated`.
+
+Validación de cierre de esta iteración:
+
+- Backend:
+  - ✅ `npm run build` (OK con Docker activo)
+  - ✅ `npm run lint` (OK)
+  - ✅ `npm test -- --runInBand` (OK — 20/20, 124/124)
+  - ✅ `npm run test:e2e` (OK — 9/9, 40/40)
+- Frontend:
+  - ✅ `npm run lint` (OK)
+  - ✅ `npm run test` (OK — 28/28 files, 77/77)
+  - ✅ `npm run build` (OK)
+  - ✅ `npx playwright test --reporter=line --timeout=45000 --workers=1` (OK — 3/3)
+
+Conclusión de compliance:
+
+- ✅ Estado técnico y de calidad consolidado.
+- ✅ No se detectan desvíos abiertos de fases previas.
+- ✅ No hay una nueva fase funcional pendiente explícita en `implementation-progress.md`; el plan queda en modo mantenimiento/hardening.
+
+## Iteración final de hardening + auditoría total (2026-02-28)
+
+**Estado:** ✅ Ejecutada y cerrada.
+
+Detalles corregidos en esta iteración:
+
+- Infra:
+  - removido atributo `version` obsoleto en `docker-compose.yml` y `docker-compose.prod.yml` (warning de Docker Compose).
+- Higiene de repo:
+  - eliminado artefacto temporal de Playwright (`notifinance-frontend/test-results/.last-run.json`).
+
+Auditoría total ejecutada (cierre técnico):
+
+- Backend:
+  - ✅ `npm run build` (Docker activo)
+  - ✅ `npm run lint`
+  - ✅ `npm test -- --runInBand` (20/20 suites, 124/124 tests)
+  - ✅ `npm run test:e2e` (9/9 suites, 40/40 tests)
+- Frontend:
+  - ✅ `npm run lint`
+  - ✅ `npm run test` (28/28 files, 77/77 tests)
+  - ✅ `npm run build`
+  - ✅ `npx playwright test --reporter=line --timeout=45000 --workers=1` (3/3)
+
+Documentación actualizada:
+
+- `README.md` actualizado para explicar proyecto, problema que resuelve y valor para recruiter técnico/no técnico.
+- `architecture.md` reescrito en profundidad con arquitectura, módulos, comunicaciones, decisiones tecnológicas y trade-offs.
+
+Conclusión de estado:
+
+- ✅ Implementación técnica del plan cerrada y auditada en verde.
+- ⚠️ Frente al SRS completo, no corresponde afirmar cobertura funcional 100% sin backlog: el plan ejecutado tiene alcance acotado y decisiones explícitas de simplificación/diferimiento.
