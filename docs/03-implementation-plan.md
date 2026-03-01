@@ -1,1114 +1,528 @@
-# NotiFinance — Plan de Implementación
+# NotiFinance — Plan de Implementación v2.0 (Release 2)
 
-**Versión:** 1.0  
-**Fecha:** 2026-02-26  
-**Autor:** Arquitectura  
+**Versión:** 2.0  
+**Fecha:** 2026-02-28  
 **Estado:** Aprobado para desarrollo  
 
 ---
 
-## 1. Análisis de Impacto en Backend Actual
+## Filosofía del Plan
 
-### 1.1 Lo que se MANTIENE (sin cambios)
-
-| Componente | Ubicación | Razón |
-|---|---|---|
-| Arquitectura Hexagonal | Todo el proyecto | Mismos principios, mismas capas |
-| development_rules.md | `.agent/` | Reglas de código siguen vigentes |
-| Shared Infrastructure | `src/shared/` | BaseRepository, Config pattern, Logger, Redis module, DB config |
-| Docker Compose (infra) | `docker-compose.yml` | PostgreSQL, Redis, RabbitMQ siguen igual |
-| Dockerfile | `Dockerfile` | Multi-stage build se mantiene |
-| Test infrastructure | `test/jest-unit.json`, `test/jest-e2e.json` | Configuraciones de Jest se mantienen |
-| RabbitMQ topology service | `infrastructure/message-brokers/` | Se expande pero la base queda |
-| Global filters & interceptors | `shared/infrastructure/` | Exception filter, logging interceptor |
-| TemplateCompilerService | `modules/template/` | El compilador de templates `{{}}` sigue funcionando exactamente igual |
-| TemplateController | `modules/template/` | CRUD de templates se mantiene |
-| Health checks | `/health` endpoint | Se mantiene, se agregan checks |
-
-### 1.2 Lo que se MODIFICA
-
-| Componente | Cambio | Detalle |
-|---|---|---|
-| **EventType enum** | Reemplazar valores | De `payment.success`, `security.login_alert`, etc. → A `market.quote.updated`, `market.dollar.updated`, `alert.triggered`, etc. |
-| **EventPayload** | Expandir metadata | El campo `metadata` ahora contendrá datos financieros (ticker, price, changePct) |
-| **DispatcherService** | Adaptar flujo | Ahora resuelve preferencias + compila template + envía a canales (la lógica se mantiene, cambian los event types) |
-| **NotificationChannel enum** | Simplificar | Remover SMS y PUSH (no se implementan), dejar EMAIL + IN_APP |
-| **UserPreference entity** | Expandir campos | Agregar `quietHoursStart`, `quietHoursEnd`, `digestFrequency` |
-| **PreferencesService** | Expandir | Agregar lógica de quiet hours y digest frequency |
-| **PreferencesController** | Expandir DTOs | Nuevos campos en request/response |
-| **Ingestion module** | Renombrar/Adaptar | EventIngestionController se mantiene para recibir eventos de los cron jobs internos. Se elimina la idempotencia por Redis (los cron jobs no duplican). |
-| **RabbitMQ topology** | Nuevas queues | Agregar `alert-evaluation-queue` + routing keys financieros |
-| **app.module.ts** | Registrar nuevos modules | Auth, MarketData, Alert, Portfolio, Watchlist |
-| **main.ts** | CORS + Swagger | Actualizar metadata de Swagger para NotiFinance |
-| **package.json** | Nuevas dependencias | `@nestjs/schedule`, `@nestjs/jwt`, `@nestjs/passport`, `passport-jwt`, `bcrypt`, `yahoo-finance2`, `nodemailer`, `socket.io` |
-| **Notification templates (DB seed)** | Contenido | Templates financieras: "GGAL superó $8.000", "Dólar MEP bajó de $1.400", etc. |
-
-### 1.3 Lo que se AGREGA (nuevos módulos)
-
-| Módulo | Complejidad | Entidades | Controllers | Services |
-|---|---|---|---|---|
-| `auth` | Media | User | AuthController | AuthService |
-| `market-data` | Alta | Asset, MarketQuote, DollarQuote, CountryRisk | MarketController, AssetController, SearchController | MarketDataService |
-| `alert` | Alta | Alert | AlertController | AlertService, AlertEvaluationEngine |
-| `portfolio` | Alta | Portfolio, Trade, Holding | PortfolioController, TradeController | PortfolioService, TradeService, HoldingsCalculator |
-| `watchlist` | Baja | WatchlistItem | WatchlistController | WatchlistService |
-| Cron Jobs | Media | - | - | 6 fetch jobs |
-
-### 1.4 Lo que se ELIMINA
-
-| Componente | Razón |
-|---|---|
-| `noticore-admin/` (carpeta completa) | Se reemplaza por `notifinance-frontend/` |
-| `noticore-client/` (carpeta completa) | Se reemplaza por `notifinance-frontend/` |
-| Valores específicos del enum EventType (payment.success, etc.) | Se reemplazan por tipos financieros |
-
-### 1.5 Migraciones de Base de Datos
-
-Se necesitan las siguientes migraciones (en orden):
-
-```
-Migration 1: CreateUsersTable
-Migration 2: CreateAssetsTable  
-Migration 3: CreateMarketQuotesTable
-Migration 4: CreateDollarQuotesTable
-Migration 5: CreateCountryRiskTable
-Migration 6: AlterUserPreferencesAddFields (quiet hours, digest)
-Migration 7: CreatePortfoliosTable
-Migration 8: CreateTradesTable
-Migration 9: CreateWatchlistTable
-Migration 10: CreateAlertsTable
-Migration 11: CreateNotificationsTable
-Migration 12: SeedAssetsData (catalogo de tickers)
-Migration 13: SeedNotificationTemplates (templates financieros)
-Migration 14: SeedDemoUser (usuario demo con portfolio)
-```
+- **Fases atómicas:** Cada fase tiene un entregable verificable y autocontenido.
+- **Iterativo:** Cada fase cierra con build + test + lint en verde.
+- **Incremental:** No se rompe funcionalidad existente; se enriquece.
+- **Prioridad:** Datos confiables primero, luego UI, luego features nuevas.
 
 ---
 
-## 2. Plan de Implementación — Backend
-
-### Fase B1: Foundation & Auth (Estimación: 3-4 días)
-
-#### B1.1: Preparación del Proyecto
-```
-□ Instalar nuevas dependencias:
-  npm install @nestjs/schedule @nestjs/jwt @nestjs/passport passport passport-jwt
-  npm install bcrypt yahoo-finance2 nodemailer @nestjs/websockets @socket.io/admin-ui
-  npm install socket.io axios cheerio
-  npm install -D @types/bcrypt @types/passport-jwt @types/nodemailer
-
-□ Crear configs con registerAs:
-  - src/shared/infrastructure/base/config/auth.config.ts
-    → JWT_SECRET, JWT_EXPIRATION, JWT_REFRESH_EXPIRATION
-  - src/shared/infrastructure/base/config/market.config.ts
-    → DOLAR_API_URL, YAHOO_FINANCE_ENABLED, ALPHA_VANTAGE_API_KEY, RESEND_API_KEY, EMAIL_FROM
-
-□ Actualizar .env.example con todas las nuevas variables
-
-□ Actualizar app.module.ts:
-  - Importar ScheduleModule.forRoot()
-  - Importar nuevos config factories
-  - Registrar nuevos módulos conforme se crean
-```
-
-#### B1.2: Módulo Auth
-```
-□ Domain Layer:
-  - src/modules/auth/domain/entities/User.ts
-    → Properties: id, email, passwordHash, displayName, isDemo, createdAt
-    → Method: verifyPassword(plain: string): boolean (NO — esto va en service con bcrypt)
-  - src/modules/auth/domain/errors/InvalidCredentialsError.ts
-  - src/modules/auth/domain/errors/EmailAlreadyExistsError.ts
-
-□ Application Layer:
-  - src/modules/auth/application/IUserRepository.ts
-    → findByEmail(email): Promise<User | null>
-    → save(user: User): Promise<User>
-    → deleteExpiredDemoUsers(): Promise<number>
-  - src/modules/auth/application/AuthService.ts
-    → register(email, password, displayName): Promise<{ user, accessToken, refreshToken }>
-    → login(email, password): Promise<{ user, accessToken, refreshToken }>
-    → refreshToken(refreshToken): Promise<{ accessToken, refreshToken }>
-    → createDemoSession(): Promise<{ user, accessToken }>
-    → validateUser(userId): Promise<User>
-
-□ Infrastructure Layer:
-  - Database:
-    → TypeORM entity: UserOrmEntity (maps to `users` table)
-    → Mapper: UserMapper (toDomain / toPersistence)
-    → Repository: TypeOrmUserRepository implements IUserRepository
-    → Migration: CreateUsersTable
-  - Auth:
-    → JwtStrategy (passport-jwt strategy)
-    → JwtAuthGuard (standard guard)
-    → OptionalAuthGuard (public endpoints que opcionalmente leen el user)
-  - HTTP:
-    → AuthController: POST /auth/register, /auth/login, /auth/refresh, /auth/demo
-    → Request DTOs: RegisterRequest, LoginRequest (class-validator)
-    → Response DTOs: AuthResponse (token + user info)
-  - Module:
-    → auth.module.ts: JwtModule.registerAsync, PassportModule
-
-□ Tests:
-  - Unit: AuthService (register, login, demo session, refresh)
-  - E2E: AuthController (registro, login, tokens, demo)
-
-□ Actualizar Global Exception Filter:
-  - Mapear InvalidCredentialsError → 401
-  - Mapear EmailAlreadyExistsError → 409
-```
-
-### Fase B2: Market Data Module (Estimación: 4-5 días)
-
-#### B2.1: Domain & Application
-```
-□ Domain Layer:
-  - entities/Asset.ts
-    → Properties: id, ticker, name, assetType, sector, yahooTicker, currency, description, metadata
-  - entities/MarketQuote.ts
-    → Properties: id, assetId, priceArs, priceUsd, open, high, low, close, volume, changePct, date
-  - entities/DollarQuote.ts
-    → Properties: id, type, buyPrice, sellPrice, timestamp, source
-  - entities/CountryRisk.ts
-    → Properties: id, value, changePct, timestamp
-  - enums/AssetType.ts
-    → STOCK, CEDEAR, BOND, LECAP, BONCAP, ON, INDEX, DOLLAR
-  - enums/DollarType.ts
-    → OFICIAL, BLUE, MEP, CCL, TARJETA, CRIPTO
-  - errors/AssetNotFoundError.ts
-
-□ Application Layer:
-  - IAssetRepository.ts
-    → findByTicker(ticker): Promise<Asset | null>
-    → findPaginated(filters: AssetFilters): Promise<PaginatedResponse<Asset>>
-    → searchByQuery(query: string, limit: number): Promise<Asset[]>
-    → findTopGainers(type: AssetType, limit: number): Promise<Asset[]>
-    → findTopLosers(type: AssetType, limit: number): Promise<Asset[]>
-  - IQuoteRepository.ts
-    → saveQuote(quote: MarketQuote): Promise<MarketQuote>
-    → saveBulkQuotes(quotes: MarketQuote[]): Promise<void>
-    → findByAssetAndPeriod(assetId, startDate, endDate): Promise<MarketQuote[]>
-    → findLatestByAsset(assetId): Promise<MarketQuote | null>
-  - IDollarProvider.ts (port para API externa)
-    → fetchAllDollarQuotes(): Promise<DollarQuote[]>
-  - IRiskProvider.ts
-    → fetchCountryRisk(): Promise<CountryRisk>
-  - IQuoteProvider.ts
-    → fetchQuote(yahooTicker: string): Promise<MarketQuote>
-    → fetchHistorical(yahooTicker: string, startDate, endDate): Promise<MarketQuote[]>
-    → fetchBulkQuotes(yahooTickers: string[]): Promise<MarketQuote[]>
-  - MarketDataService.ts
-    → getDollarQuotes(): Promise<DollarQuote[]>
-    → getDollarHistory(type, days): Promise<DollarQuote[]>
-    → getCountryRisk(): Promise<CountryRisk>
-    → getCountryRiskHistory(days): Promise<CountryRisk[]>
-    → getAssetDetail(ticker): Promise<Asset>
-    → getAssetQuotes(ticker, period): Promise<MarketQuote[]>
-    → getAssetStats(ticker): Promise<AssetStats>
-    → getMarketSummary(): Promise<MarketSummary>
-    → getMarketStatus(): Promise<MarketStatus>
-    → searchAssets(query, limit): Promise<Asset[]>
-    → refreshDollarData(): Promise<void>   (llamado por cron)
-    → refreshStockQuotes(): Promise<void>  (llamado por cron)
-    → refreshRiskData(): Promise<void>     (llamado por cron)
-```
-
-#### B2.2: Infrastructure — External API Clients
-```
-□ HTTP Clients (secondary-adapters/http/clients/):
-  - DolarApiClient.ts (implements IDollarProvider)
-    → GET https://dolarapi.com/v1/dolares → parse → DollarQuote[]
-    → Fallback: Bluelytics API
-    → Cache: Redis TTL 5min
-    → Error handling: circuit breaker pattern
-  
-  - YahooFinanceClient.ts (implements IQuoteProvider) 
-    → Usa librería yahoo-finance2
-    → quoteSummary() para datos actuales
-    → historical() para datos históricos
-    → Manejo de rate limit (sleep entre requests)
-    → Mapeo de tickers AR: agregar sufijo .BA
-    → Cache: Redis TTL 5min para quotes, 1h para historicals
-
-  - AlphaVantageClient.ts (fallback, implements IQuoteProvider)
-    → Solo para datos US (CEDEARs subyacentes)
-    → 25 req/día gratis → usar con criterio
-```
-
-#### B2.3: Infrastructure — Cron Jobs
-```
-□ Jobs (primary-adapters/jobs/):
-  - DollarFetchJob.ts
-    → @Cron('*/5 * * * *')
-    → Llama MarketDataService.refreshDollarData()
-    → Publica evento 'market.dollar.updated' al broker
-    → Log: inicio, duración, datos actualizados, errores
-
-  - RiskFetchJob.ts
-    → @Cron('*/10 * * * *')
-    → Llama MarketDataService.refreshRiskData()
-    → Publica evento 'market.risk.updated'
-
-  - StockQuoteFetchJob.ts
-    → @Cron('*/5 10-17 * * 1-5') — solo horario de mercado AR
-    → Fetch batch de ~80 acciones argentinas
-    → Procesa en chunks de 10 con delay entre chunks
-    → Publica evento 'market.quote.updated' por cada activo actualizado
-
-  - CedearQuoteFetchJob.ts
-    → @Cron('*/5 10-17 * * 1-5')
-    → Fetch batch de ~300 CEDEARs (en chunks de 20)
-    → Misma lógica que StockQuoteFetchJob
-
-  - BondQuoteFetchJob.ts
-    → @Cron('*/15 10-17 * * 1-5')
-    → Fetch de bonos, LECAPs, ONs
-    → Menos frecuente (menos volátiles)
-
-  - HistoricalDataJob.ts
-    → @Cron('0 18 * * 1-5') — después del cierre
-    → Consolida datos OHLCV diarios para todos los activos
-    → Limpieza de datos intraday si aplica
-```
-
-#### B2.4: Infrastructure — HTTP Controllers
-```
-□ Controllers:
-  - MarketController.ts
-    → GET /api/v1/market/dollar
-    → GET /api/v1/market/dollar/:type
-    → GET /api/v1/market/dollar/history
-    → GET /api/v1/market/risk
-    → GET /api/v1/market/risk/history
-    → GET /api/v1/market/summary
-    → GET /api/v1/market/status
-
-  - AssetController.ts
-    → GET /api/v1/assets (paginado, filtrado)
-    → GET /api/v1/assets/:ticker
-    → GET /api/v1/assets/:ticker/quotes
-    → GET /api/v1/assets/:ticker/stats
-    → GET /api/v1/assets/:ticker/related
-    → GET /api/v1/assets/top/gainers
-    → GET /api/v1/assets/top/losers
-
-  - SearchController.ts
-    → GET /api/v1/search?q=...&limit=10
-
-□ DTOs para cada endpoint (request + response)
-□ Swagger decorators completos
-```
-
-#### B2.5: Database Migrations & Seeds
-```
-□ Migraciones:
-  - CreateAssetsTable
-  - CreateMarketQuotesTable
-  - CreateDollarQuotesTable
-  - CreateCountryRiskTable
-
-□ Seeds:
-  - seed-assets.ts: Insertar catálogo completo de tickers
-    → ~80 acciones argentinas (GGAL, YPFD, PAMP, BMA, etc.)
-    → ~300 CEDEARs (AAPL, MSFT, GOOGL, etc.)
-    → ~10 bonos soberanos (AL30, GD30, etc.)
-    → ~15 LECAPs/BONCAPs
-    → ~20 ONs principales
-    → Incluir yahoo_ticker para cada uno
-```
-
-#### B2.6: Tests
-```
-□ Unit tests:
-  - MarketDataService (mock de repositories y providers)
-  - Asset entity (si tiene business logic)
-  
-□ E2E tests:
-  - MarketController (mock de MarketDataService)
-  - AssetController (mock de MarketDataService)
-  - SearchController
-```
-
-### Fase B3: Alert Module (Estimación: 3-4 días)
-
-#### B3.1: Domain & Application
-```
-□ Domain:
-  - entities/Alert.ts
-    → Properties: id, userId, assetId, alertType, condition, threshold, period, channels, isRecurring, status, lastTriggeredAt
-    → Methods:
-      → evaluate(currentValue: number): boolean
-      → trigger(): void (marca como triggered, actualiza lastTriggeredAt)
-      → canTrigger(): boolean (es ACTIVE y no está en cooldown)
-  - enums/AlertType.ts → PRICE, PCT_CHANGE, DOLLAR, RISK, PORTFOLIO
-  - enums/AlertCondition.ts → ABOVE, BELOW, CROSSES, PCT_UP, PCT_DOWN
-  - enums/AlertStatus.ts → ACTIVE, PAUSED, TRIGGERED, EXPIRED
-  - errors/AlertLimitExceededError.ts
-  - errors/AlertNotFoundError.ts
-
-□ Application:
-  - AlertService.ts
-    → createAlert(userId, data): Promise<Alert>
-      → Validar límite de 20 alertas activas
-      → Validar que el asset existe
-    → getUserAlerts(userId): Promise<Alert[]>
-    → updateAlert(userId, alertId, data): Promise<Alert>
-    → changeStatus(userId, alertId, status): Promise<Alert>
-    → deleteAlert(userId, alertId): Promise<void>
-  
-  - AlertEvaluationEngine.ts
-    → evaluateAlertsForAsset(assetId, currentPrice): Promise<Alert[]>
-      → Query alertas ACTIVE para ese asset
-      → Para cada una: alert.evaluate(currentPrice)
-      → Retornar las que se cumplieron
-    → evaluateAlertsForDollar(dollarType, currentPrice): Promise<Alert[]>
-    → evaluateAlertsForRisk(currentValue): Promise<Alert[]>
-
-  - IAlertRepository.ts
-    → findByUserIdPaginated(userId, page, limit): Promise<PaginatedResponse<Alert>>
-    → findActiveByAssetId(assetId): Promise<Alert[]>
-    → findActiveByType(alertType): Promise<Alert[]>
-    → countActiveByUserId(userId): Promise<number>
-    → save(alert): Promise<Alert>
-    → delete(id): Promise<void>
-```
-
-#### B3.2: Infrastructure
-```
-□ Database:
-  - AlertOrmEntity, AlertMapper, TypeOrmAlertRepository
-  - Migration: CreateAlertsTable
-
-□ RabbitMQ Consumer (primary-adapter):
-  - AlertEvaluationConsumer.ts
-    → Consume from: alert-evaluation-queue
-    → Routing keys: market.quote.updated, market.dollar.updated, market.risk.updated
-    → On message → AlertEvaluationEngine.evaluateAlerts*(...)
-    → For each triggered alert → Publish 'alert.triggered' event
-    → ACK: siempre (evaluación es best-effort)
-
-□ HTTP Controller:
-  - AlertController.ts (protegido por JwtAuthGuard)
-    → CRUD de alertas del usuario autenticado
-    → Swagger completo
-
-□ Tests:
-  - Unit: AlertService, AlertEvaluationEngine, Alert.evaluate()
-  - E2E: AlertController CRUD
-```
-
-### Fase B4: Notification Module Expansion (Estimación: 2-3 días)
-
-#### B4.1: Expand Existing Module
-```
-□ Domain:
-  - entities/Notification.ts (NUEVA)
-    → Properties: id, userId, alertId, title, body, type, metadata, isRead, readAt, createdAt
-    → Method: markAsRead(): void
-
-□ Application:
-  - NotificationService.ts (NUEVO)
-    → getUserNotifications(userId, filters): Promise<PaginatedResponse<Notification>>
-    → getUnreadCount(userId): Promise<number>
-    → markAsRead(userId, notificationId): Promise<void>
-    → markAllAsRead(userId): Promise<void>
-    → deleteNotification(userId, notificationId): Promise<void>
-  - INotificationRepository.ts (NUEVO)
-    → findByUserPaginated(userId, unreadOnly, page, limit): PaginatedResponse
-    → countUnread(userId): number
-    → save(notification): Notification
-
-□ Infrastructure:
-  - NotificationController.ts (NUEVO)
-    → GET /api/v1/notifications
-    → GET /api/v1/notifications/count
-    → PATCH /api/v1/notifications/:id/read
-    → PATCH /api/v1/notifications/read-all
-    → DELETE /api/v1/notifications/:id
-
-  - NotificationGateway.ts (EXPANDIR WebSocket)
-    → Namespace: /notifications
-    → Autenticación: JWT en handshake
-    → Eventos: 'notification:new', 'notification:count'
-    → Al recibir evento alert.triggered: persist + push via WS + email
-
-  - MarketGateway.ts (NUEVO WebSocket)
-    → Namespace: /market
-    → Sin auth (datos públicos)
-    → Eventos: 'market:dollar', 'market:risk', 'market:quote'
-    → Rooms: market:all, market:STOCK, market:CEDEAR
-
-  - EmailChannelAdapter.ts (ACTUALIZAR)
-    → Implementar envío real con Nodemailer/Resend
-    → HTML template responsivo con branding NotiFinance
-    → Subject: "[NotiFinance] GGAL superó $8.000"
-
-  - InAppChannelAdapter.ts (ACTUALIZAR)
-    → Persistir notificación en tabla notifications
-    → Push via WebSocket gateway
-
-  - Migration: CreateNotificationsTable
-
-□ Actualizar DispatcherService:
-  - Adaptar el flujo existente para que:
-    1. Compile template (ya funciona con {{metadata.ticker}})
-    2. Resuelva preferencias (ya funciona)
-    3. Persista en tabla notifications (NUEVO step)
-    4. Envíe por canales: WebSocket + Email
-
-□ Actualizar templates (seed):
-  - event_type: 'alert.price.above'
-    subject: '{{metadata.ticker}} superó {{metadata.threshold}}'
-    body: '{{metadata.ticker}} alcanzó ${{metadata.currentPrice}} (umbral: ${{metadata.threshold}})'
-  - event_type: 'alert.price.below'
-  - event_type: 'alert.dollar.above'
-  - event_type: 'alert.dollar.below'
-  - event_type: 'alert.risk.above'
-  - event_type: 'alert.risk.below'
-  - event_type: 'alert.pct.up'
-  - event_type: 'alert.pct.down'
-```
-
-### Fase B5: Portfolio & Watchlist (Estimación: 3-4 días)
-
-#### B5.1: Watchlist Module
-```
-□ Domain:
-  - entities/WatchlistItem.ts → userId, assetId, createdAt
-
-□ Application:
-  - WatchlistService.ts
-    → getUserWatchlist(userId): Promise<WatchlistItem[]>
-    → addToWatchlist(userId, ticker): Promise<WatchlistItem>
-    → removeFromWatchlist(userId, ticker): Promise<void>
-  - IWatchlistRepository.ts
-
-□ Infrastructure:
-  - WatchlistController.ts (protegido)
-  - DB entities + mapper + repository + migration
-
-□ Tests: Unit + E2E
-```
-
-#### B5.2: Portfolio Module
-```
-□ Domain:
-  - entities/Portfolio.ts → id, userId, name, description
-  - entities/Trade.ts → id, portfolioId, assetId, tradeType, quantity, pricePerUnit, currency, commission, executedAt
-  - entities/Holding.ts (value object, no persistido directamente)
-    → assetId, ticker, quantity, avgCostBasis, currentPrice, unrealizedPnl, unrealizedPnlPct, weight
-  - enums/TradeType.ts → BUY, SELL
-  - errors/InsufficientHoldingsError.ts
-  - errors/PortfolioNotFoundError.ts
-
-□ Application:
-  - PortfolioService.ts
-    → createPortfolio(userId, name, description): Promise<Portfolio>
-    → getUserPortfolios(userId): Promise<Portfolio[]>
-    → getPortfolioDetail(userId, portfolioId): Promise<PortfolioDetail>
-    → deletePortfolio(userId, portfolioId): Promise<void>
-  
-  - TradeService.ts
-    → recordTrade(userId, portfolioId, tradeData): Promise<Trade>
-      → Si SELL: validar que hay sufficient holdings (FIFO)
-    → getTradeHistory(userId, portfolioId, filters): Promise<PaginatedResponse<Trade>>
-
-  - HoldingsCalculator.ts
-    → calculateHoldings(trades: Trade[], currentPrices: Map<string, number>): Holding[]
-      → FIFO para cost basis
-      → Calcular P&L por posición
-      → Calcular peso en portfolio
-    → calculatePerformance(trades: Trade[], historicalPrices, period): PerformancePoint[]
-    → calculateDistribution(holdings: Holding[]): Distribution
-
-□ Infrastructure:
-  - PortfolioController.ts
-    → CRUD de portfolios
-    → GET holdings, performance, distribution
-  - TradeController.ts
-    → POST trade, GET trade history
-  - DB: entities, mappers, repositories, 2 migraciones
-
-□ Tests:
-  - Unit: HoldingsCalculator (FIFO, P&L), TradeService (validation), PortfolioService
-  - E2E: Portfolio CRUD + Trade recording
-```
-
-### Fase B6: EventType Migration & Integration (Estimación: 1-2 días)
-
-```
-□ Actualizar EventType enum:
-  - REMOVER: PAYMENT_SUCCESS, SECURITY_LOGIN_ALERT, MARKETING_PROMO, TRANSFER_RECEIVED
-  - AGREGAR: MARKET_QUOTE_UPDATED, MARKET_DOLLAR_UPDATED, MARKET_RISK_UPDATED,
-             ALERT_PRICE_ABOVE, ALERT_PRICE_BELOW, ALERT_DOLLAR_ABOVE, ALERT_DOLLAR_BELOW,
-             ALERT_RISK_ABOVE, ALERT_RISK_BELOW, ALERT_PCT_UP, ALERT_PCT_DOWN
-
-□ Actualizar RabbitMQ topology:
-  - Exchange: notifinance.events (topic) ← renombrar de 'notifications'
-  - Nueva queue: alert-evaluation-queue
-  - Routing keys: market.*, alert.*
-  - Mantener DLQ
-
-□ Actualizar seed de notification_templates con templates financieras
-
-□ Integration test completo:
-  - Simular: CronJob actualiza precio → Evento publicado → Alert evaluado → Notificación enviada
-  - Verificar flujo end-to-end con mocks de API externa
-```
-
-### Fase B7: Demo Mode & Seeds (Estimación: 1 día)
-
-```
-□ Implementar DemoSeedService:
-  - Crea usuario demo con portfolio precargado:
-    → 3 acciones argentinas (GGAL, YPFD, PAMP)
-    → 4 CEDEARs (AAPL, MSFT, GOOGL, NVDA)
-    → 2 bonos (AL30, GD30)
-  - Crea watchlist con 10 activos populares
-  - Crea 3 alertas activas:
-    → "GGAL supera $8.000" (precio)
-    → "Dólar MEP supera $1.500" (dólar)
-    → "Riesgo país baja de 500" (riesgo)
-  - Crea 5 notificaciones de ejemplo
-
-□ CronJob de limpieza:
-  - @Cron('0 4 * * *') → Eliminar usuarios demo con createdAt > 24h
-
-□ AuthController.demo():
-  - Llama DemoSeedService
-  - Retorna JWT con TTL 24h
-```
-
-### Fase B8: Testing & Quality (Estimación: 2-3 días)
-
-```
-□ Unit Tests (target >80%):
-  - AuthService (register, login, refresh, demo)
-  - MarketDataService (fetch, cache, fallback)
-  - AlertService (CRUD, límite 20)
-  - AlertEvaluationEngine (evaluate conditions: ABOVE, BELOW, PCT)
-  - Alert.evaluate() domain logic
-  - HoldingsCalculator (FIFO, P&L, distribution)
-  - TradeService (buy, sell validation)
-  - WatchlistService (add, remove)
-  - NotificationService (CRUD, mark read)
-  - User entity & Holding value object
-
-□ E2E Tests:
-  - Auth: register → login → refresh → protected endpoint
-  - Market: GET /market/dollar, /market/risk, /market/summary
-  - Assets: GET /assets, /assets/:ticker, /assets/:ticker/quotes
-  - Search: GET /search?q=
-  - Watchlist: POST → GET → DELETE
-  - Portfolio: Create → Add trades → Get holdings → Get performance
-  - Alerts: CRUD + status change
-  - Notifications: GET inbox, mark read, count
-
-□ Architecture Tests:
-  - Actualizar para cubrir nuevos módulos
-  - Validar que ningún domain importa infraestructura
-
-□ Coverage:
-  - npm run test:unit:cov → >80% en application + domain
-  - npm run test:e2e:cov → >80% en controllers
-```
-
-### Fase B9: Documentation & Polish (Estimación: 1 día)
-
-```
-□ Swagger:
-  - Todos los endpoints con @ApiTags, @ApiOperation, @ApiResponse
-  - Todos los DTOs con @ApiProperty (type, description, example)
-  - Organizado por tags: Auth, Market, Assets, Watchlist, Portfolio, Alerts, Notifications
-
-□ README.md:
-  - Actualizar nombre: NotiFinance
-  - Descripción del proyecto
-  - Quick Start (docker compose up → app running)
-  - Available endpoints summary
-  - Environment variables reference
-  - Testing commands
-  - Architecture overview link
-
-□ .env.example actualizado con todas las variables
-
-□ Postman/Insomnia collection (opcional pero recomendado):
-  - Export de todos los endpoints con examples
-```
+## Resumen de Fases
+
+| Fase | Nombre | Duración est. | Prioridad |
+|---|---|---|---|
+| R2-B01 | Provider Health Tracking | 1 día | Crítica |
+| R2-B02 | Dólar — Nuevas fuentes y validación | 1-2 días | Crítica |
+| R2-B03 | Acciones/CEDEARs — Scraper Rava | 2 días | Crítica |
+| R2-B04 | Acciones/CEDEARs — Cliente BYMA Data | 1 día | Alta |
+| R2-B05 | Provider Scoring y Orquestación | 1-2 días | Crítica |
+| R2-B06 | Catálogo Dinámico y Limpieza de Activos | 1 día | Alta |
+| R2-B07 | Renta Fija — TIR, TNA/TEA, Calendario de Cupones | 1-2 días | Alta |
+| R2-B08 | MEP/CCL — Cálculo Propio | 1 día | Alta |
+| R2-B09 | Datos Históricos — Backfill | 1-2 días | Alta |
+| R2-B10 | Noticias — Módulo de Agregación RSS | 2 días | Media |
+| R2-B11 | Enrichment de Cotizaciones (source, confidence) | 1 día | Alta |
+| R2-B12 | Alertas — Validación E2E con Datos Reales | 1 día | Alta |
+| R2-B13 | Portfolio — Precios Reales y Frescura | 0.5 días | Alta |
+| R2-B14 | QA de Datos Automatizado | 1 día | Alta |
+| R2-F01 | Componente FreshnessIndicator | 0.5 días | Alta |
+| R2-F02 | Mensajes de Error Contextuales | 1 día | Alta |
+| R2-F03 | Dashboard — Mejoras Dólar y Riesgo País | 1 día | Alta |
+| R2-F04 | Dashboard — Top Movers y Estado de Mercado | 1 día | Alta |
+| R2-F05 | Detalle de Activo — Acciones y CEDEARs | 1 día | Alta |
+| R2-F06 | Detalle de Activo — Bonos y LECAPs | 1 día | Alta |
+| R2-F07 | Widget de Noticias | 1 día | Media |
+| R2-F08 | Panel de Salud de Providers | 0.5 días | Media |
+| R2-F09 | Portfolio — Indicadores de Frescura | 0.5 días | Alta |
+| R2-F10 | QA Visual y Testing E2E Frontend | 1 día | Alta |
+
+**Estimación total:** ~22-26 días de trabajo
 
 ---
 
-## 3. Plan de Implementación — Frontend
+## Detalle de Fases — Backend
 
-### Fase F1: Project Setup (Estimación: 1 día)
+### R2-B01: Provider Health Tracking
 
-```
-□ Eliminar carpetas noticore-admin/ y noticore-client/
+**Objetivo:** Infraestructura base para monitorear el estado de todas las fuentes de datos.
 
-□ Crear proyecto Next.js 15:
-  npx create-next-app@latest notifinance-frontend --typescript --tailwind --eslint --app --src-dir
+**Entregables:**
+1. Entidad `ProviderHealth` en `shared/domain/` o `market-data/domain/`.
+2. Tabla `provider_health` con migración.
+3. `IProviderHealthRepository` (interfaz) + `TypeOrmProviderHealthRepository` (implementación).
+4. `ProviderHealthTracker` service: registra éxito/fallo de cada llamada HTTP a providers.
+5. `ProviderHealthJob` (cron cada 5 min): actualiza métricas rolling de 24h.
+6. Endpoint `GET /api/v1/health/providers`.
+7. Tests unitarios del tracker y del job.
+8. Test E2E del endpoint.
 
-□ Instalar dependencias:
-  npm install @tanstack/react-query axios socket.io-client zustand
-  npm install lightweight-charts react-hook-form @hookform/resolvers zod
-  npm install lucide-react date-fns clsx tailwind-merge
-  npx shadcn@latest init (dark theme, slate color)
-  npx shadcn@latest add button card dialog dropdown-menu input label
-  npx shadcn@latest add select sheet table tabs toast badge separator
-  npx shadcn@latest add command popover scroll-area skeleton switch toggle
-
-□ Configurar estructura de carpetas según spec técnica
-□ Configurar Tailwind con paleta fintech dark theme
-□ Configurar providers: QueryProvider, ThemeProvider, SocketProvider
-□ Configurar Axios instance con interceptors (token, refresh, error handling)
-□ Configurar Socket.io client
-□ Crear tipos TypeScript para API (types/)
-□ Crear helpers de formato (lib/format.ts): formatCurrency, formatPercent, formatDate
-□ Crear store de auth (Zustand)
-□ Crear store de theme (Zustand)
-```
-
-### Fase F2: Layout & Navigation (Estimación: 1-2 días)
-
-```
-□ Root layout (app/layout.tsx):
-  - Font: Inter (Google Fonts)
-  - Metadata: title, description, og:image
-  - Providers wrapper
-
-□ Sidebar:
-  - Logo NotiFinance
-  - Navigation links:
-    → Dashboard (Home icon)
-    → Acciones (TrendingUp icon)
-    → CEDEARs (Globe icon)
-    → Bonos (Landmark icon)
-    → Watchlist (Star icon) — requiere auth
-    → Portfolio (Briefcase icon) — requiere auth
-    → Alertas (Bell icon) — requiere auth
-  - Colapsable en mobile
-  - Active state highlighting
-
-□ Header:
-  - Barra de búsqueda global (Ctrl+K trigger)
-  - Botón tema dark/light
-  - NotificationBell (campana con badge)
-  - User menu (avatar → settings, logout) o botón Login/Demo
-
-□ CommandPalette:
-  - Dialog modal con input de búsqueda
-  - Fetch a /api/v1/search en debounce (300ms)
-  - Resultados agrupados por tipo
-  - Navegación con keyboard (arrow keys + enter)
-
-□ Responsive:
-  - Sidebar → drawer en mobile
-  - Header → hamburger menu
-```
-
-### Fase F3: Dashboard Page (Estimación: 2-3 días)
-
-```
-□ DollarPanel:
-  - 6 cards (Oficial, Blue, MEP, CCL, Tarjeta, Cripto)
-  - Cada card: nombre, compra, venta, variación % con color
-  - WebSocket update: 'market:dollar' events
-  - Skeleton loader mientras carga
-  - "Actualizado hace X minutos" timestamp
-
-□ RiskCountryCard:
-  - Valor grande con puntos
-  - Variación con flecha y color
-  - Sparkline de 30 días (lightweight-charts)
-  - WebSocket update: 'market:risk'
-
-□ MarketStatusBadge:
-  - Badge verde "Mercado Abierto" o rojo "Mercado Cerrado"
-  - Countdown "Cierra en 2h 15m" o "Abre en 16h 30m"
-
-□ IndexCards:
-  - S&P Merval, S&P 500, Nasdaq, Dow Jones
-  - Valor + variación % + sparkline 5 días
-
-□ TopMoversTable:
-  - Tabs: Acciones | CEDEARs
-  - Sub-tabs: Mejores | Peores
-  - Tabla: Ticker, Precio, Variación %, enlace a detalle
-  - 5 items por categoría
-
-□ WatchlistWidget (si autenticado):
-  - Primeros 5-10 activos del watchlist
-  - Precios actualizados en real-time
-  - Link "Ver todos" → /watchlist
-  - Empty state si no hay favoritos
-```
-
-### Fase F4: Asset Explorer (Estimación: 2-3 días)
-
-```
-□ Asset Explorer Page (/assets):
-  - Tabs: Acciones | CEDEARs | Bonos | LECAPs | ONs
-  - Cada tab carga datos del endpoint correspondiente
-
-□ AssetTable (componente reutilizable):
-  - Columnas configurables por tipo de activo
-  - Sorting por click en header
-  - Pagination (server-side)
-  - Row clickeable → navega a /assets/[ticker]
-  - Favorito (estrella) toggle en última columna
-
-□ AssetFilters:
-  - Para acciones: Por índice (Merval, General)
-  - Para CEDEARs: "7 Magníficas", por sector, Solo ETFs
-  - Para bonos: Por ley (ARG / NY)
-  - Filtro común: Solo positivos, solo negativos
-
-□ FavoriteButton:
-  - Estrella toggle (amarillo si favorito)
-  - Optimistic update + API call
-  - Si no autenticado → mostrar tooltip "Inicia sesión"
-
-□ PriceDisplay component:
-  - Formato moneda AR: $1.234,56
-  - Color verde si positivo, rojo si negativo
-  - Flecha arriba/abajo
-
-□ PercentBadge component:
-  - Badge con +2.5% (verde) o -1.3% (rojo)
-  - Redondeado a 2 decimales
-```
-
-### Fase F5: Asset Detail Page (Estimación: 3-4 días)
-
-```
-□ Asset Detail Page (/assets/[ticker]):
-  - Fetch asset info + quotes
-
-□ PriceChart (componente principal):
-  - TradingView Lightweight Charts
-  - Line chart por defecto, toggle a Candlestick
-  - Period selector: 1D, 5D, 1M, 3M, 6M, 1Y, 5Y, MAX
-  - Cada período cambia el fetch
-  - Tooltip on hover con OHLCV
-  - Overlays opcionales: SMA 20/50/200, EMA, Bollinger
-  - Responsive width
-
-□ AssetStatsPanel:
-  - Card lateral con métricas:
-    → Precio actual (grande)
-    → Variación diaria ($ y %)
-    → Apertura, Máximo, Mínimo del día
-    → Máximo 52 semanas, Mínimo 52 semanas
-    → Volumen promedio 30d
-    → Tipo de cambio implícito (solo CEDEARs)
-
-□ Asset Info Section:
-  - Nombre completo, sector, descripción
-  - Para CEDEARs: subyacente, ratio, exchange
-  - Para bonos: ley, TIR, duration, flujo de fondos (tabla)
-  - Para LECAPs: vencimiento, TNA, TEA
-
-□ Indicadores Técnicos:
-  - Toggle buttons para activar/desactivar:
-    → SMA 20 (azul), SMA 50 (naranja), SMA 200 (rojo)
-    → EMA 12, EMA 26
-    → Bollinger Bands
-  - Cálculos hechos en frontend con los datos del gráfico
-  - Panel separado para RSI y MACD (debajo del chart principal)
-
-□ Related Assets:
-  - Sección colapsable
-  - Otros activos del mismo sector o tipo
-  - Cards pequeños con ticker + precio + variación
-```
-
-### Fase F6: Auth Pages (Estimación: 1 día)
-
-```
-□ Login Page (/login):
-  - Form: email + password
-  - Validación con react-hook-form + zod
-  - Botón "Probar Demo" prominente (sin registro)
-  - Link a /register
-  - Error handling: credenciales inválidas, rate limit
-
-□ Register Page (/register):
-  - Form: display name + email + password + confirm password
-  - Validación strength del password
-  - Redirect a /dashboard post-registro
-
-□ Auth middleware (Next.js middleware.ts):
-  - Proteger rutas /watchlist, /portfolio, /alerts, /settings
-  - Redirect a /login si no autenticado
-
-□ Hook useAuth:
-  - login(email, password)
-  - register(email, password, displayName)
-  - startDemo()
-  - logout()
-  - refreshToken() automático
-  - isAuthenticated computed
-```
-
-### Fase F7: Watchlist & Portfolio (Estimación: 3-4 días)
-
-```
-□ Watchlist Page (/watchlist):
-  - Tabla con todos los favoritos del usuario
-  - Columnas: Ticker, Nombre, Precio, Var %, Tipo, Acciones (quitar)
-  - Precios actualizados via WebSocket
-  - Empty state: "No tenés favoritos. Explorá activos →"
-  - Botón "Agregar" → búsqueda inline
-
-□ Portfolio Page (/portfolio):
-  - Lista de portfolios del usuario
-  - Card por portfolio: nombre, valor total, P&L total, variación %
-  - Botón "Crear portfolio"
-  - Create dialog: nombre + descripción
-
-□ Portfolio Detail Page (/portfolio/[id]):
-  - Tab 1: Tenencias
-    → HoldingsTable: Ticker, Cantidad, Precio promedio, Precio actual, P&L ($), P&L (%), Peso (%)
-    → Totales en footer: Valor total, P&L total
-    → Botón "Registrar operación"
-  
-  - Tab 2: Performance
-    → PerformanceChart: evolución del valor del portfolio
-    → Period selector: 1M, 3M, 6M, 1Y, ALL
-    → Benchmark overlay: vs Merval, vs Dólar MEP
-
-  - Tab 3: Distribución
-    → DonutChart: por activo, por tipo, por sector, por moneda
-    → Toggle entre vistas
-
-  - Tab 4: Operaciones
-    → TradeHistory: tabla cronológica de compras/ventas
-    → Filtros: por ticker, tipo, fecha
-
-□ TradeForm (dialog):
-  - Tipo: Compra / Venta
-  - Activo: Autocomplete search
-  - Cantidad
-  - Precio por unidad
-  - Moneda: ARS / USD
-  - Fecha
-  - Comisión (opcional)
-  - Validación: ticker existe, cantidad > 0, si venta ≤ tenencia actual
-```
-
-### Fase F8: Alerts & Notifications (Estimación: 2-3 días)
-
-```
-□ Alerts Page (/alerts):
-  - Lista de alertas del usuario
-  - AlertCard por alerta:
-    → Ícono por tipo (price/dollar/risk/pct/portfolio)
-    → Descripción: "GGAL supera $8.000"
-    → Estado: badge (Activa/Pausada/Disparada)
-    → Toggle pausa/activar
-    → Botones: editar, eliminar
-  - Botón "Crear alerta" → AlertForm dialog
-  - Contador: "3/20 alertas activas"
-
-□ AlertForm (dialog con steps o tabs):
-  - Step 1: Tipo de alerta
-    → Precio de activo | Variación % | Dólar | Riesgo País | Portfolio
-  - Step 2: Configuración
-    → Seleccionar activo (si aplica)
-    → Condición: Mayor que / Menor que / Cruza
-    → Valor umbral
-    → Período (si % change): Diario / Semanal
-  - Step 3: Notificación
-    → Canales: In-App (siempre) + Email (toggle)
-    → Tipo: Una sola vez / Recurrente
-  - Preview: "Te notificaremos cuando GGAL supere $8.000 por email e in-app"
-
-□ NotificationBell (header):
-  - Ícono campana con badge de count
-  - Click → dropdown con últimas 5 notificaciones
-  - Cada notif: título, preview body, "hace X tiempo", dot no leída
-  - Link "Ver todas" → /notifications
-  - WebSocket: actualización en real-time
-
-□ Notifications Page (/notifications):
-  - Lista paginada de todas las notificaciones
-  - Filtros: Todas / No leídas / Por tipo
-  - Botón "Marcar todas como leídas"
-  - Cada notif clickeable → navega al activo relacionado
-
-□ Toast notifications:
-  - Cuando llega una nueva notificación por WebSocket
-  - Toast breve (5seg) en esquina inferior derecha
-  - Click en toast → navega al detalle
-```
-
-### Fase F9: Settings & Polish (Estimación: 1-2 días)
-
-```
-□ Settings Page (/settings):
-  - Sección: Perfil (display name, email — read only)
-  - Sección: Canales de notificación (In-App toggle, Email toggle)
-  - Sección: Frecuencia (Real-time / Resumen horario / Resumen diario)
-  - Sección: Horario silencioso (hora inicio, hora fin)
-  - Sección: Tema (Dark / Light toggle)
-  - Botón guardar con feedback
-
-□ Loading States:
-  - Skeleton loaders en todas las tablas y cards
-  - Spinner en botones durante acciones
-
-□ Empty States:
-  - Ilustraciones SVG minimalistas para:
-    → Watchlist vacía
-    → Portfolio vacío
-    → Sin alertas
-    → Sin notificaciones
-    → Sin resultados de búsqueda
-
-□ Error States:
-  - Toast para errores de red
-  - Retry button
-  - Fallback UI para errores de componente
-
-□ Responsive:
-  - Verificar todas las vistas en 768px, 1024px, 1440px
-  - Tablas responsive: scroll horizontal en mobile
-  - Charts responsive: ancho auto
-```
-
-### Fase F10: Testing & Final QA (Estimación: 2 días)
-
-```
-□ Component tests (Vitest + Testing Library):
-  - PriceDisplay (formato correcto, colores)
-  - PercentBadge (positivo/negativo/zero)
-  - FavoriteButton (toggle, auth required)
-  - AlertForm (validación, submit)
-  - TradeForm (validación, FIFO check)
-
-□ Integration tests:
-  - Dashboard carga datos correctamente
-  - Asset detail muestra gráfico
-  - Portfolio muestra P&L correcto
-  - Alert creation flow completo
-
-□ Manual QA checklist:
-  - [ ] Dashboard muestra datos reales
-  - [ ] Búsqueda global funciona
-  - [ ] Gráficos cargan para todos los períodos
-  - [ ] Favoritos se persisten
-  - [ ] Portfolio P&L es correcto
-  - [ ] Alertas se configuran y disparan
-  - [ ] Notificaciones llegan en real-time
-  - [ ] Demo mode funciona sin registro
-  - [ ] Dark/Light theme toggle funciona
-  - [ ] Responsive en tablet
-  - [ ] Auth flow completo (register → login → protected routes)
-```
+**Criterio de cierre:** Endpoint retorna estado de todos los providers registrados. Build + test verde.
 
 ---
 
-## 4. Configuraciones Transversales
+### R2-B02: Dólar — Nuevas Fuentes y Validación
 
-### 4.1 Docker Compose Update
+**Objetivo:** Agregar ArgentinaDatos y BCRA como fuentes adicionales; validación cruzada.
 
-```
-□ Actualizar docker-compose.yml:
-  - Mantener postgres, redis, rabbitmq
-  - No cambios necesarios (misma infraestructura)
+**Entregables:**
+1. `ArgentinaDatosClient` — cliente HTTP para `/v1/cotizaciones/dolares`.
+2. `BCRAClient` — cliente HTTP para tipo de cambio de referencia del BCRA.
+3. Integrar ambos en `MultiSourceDollarClient`:
+   - ArgentinaDatos como fuente adicional en el consenso.
+   - BCRA como referencia de validación (no consenso, solo validación de dólar oficial).
+4. Lógica de validación: si diferencia entre consenso y BCRA > 2% para oficial, loguear warning.
+5. Tests unitarios de cada nuevo client (con mocks HTTP).
+6. Test de integración de `MultiSourceDollarClient` con 5 fuentes.
+7. Actualizar `DollarUpdateJob` para incluir nuevas fuentes.
 
-□ Actualizar docker-compose.prod.yml:
-  - Service backend: build context .
-  - Service frontend: build context ./notifinance-frontend
-  - Nginx reverse proxy (opcional para local)
-
-□ Actualizar scripts/docker-setup.js:
-  - Verificar que .env tiene las nuevas variables
-  - Health check para los 3 servicios
-```
-
-### 4.2 CI/CD (Opcional pero recomendado)
-
-```
-□ GitHub Actions workflow:
-  - On push to main:
-    1. npm ci
-    2. npm run lint
-    3. npm run test:unit:cov
-    4. npm run test:e2e:cov
-    5. npx nest build
-    6. (Si deploy) → deploy to Render/Vercel
-```
-
-### 4.3 Swagger / API Documentation
-
-```
-□ Configurar Swagger en main.ts:
-  - Title: "NotiFinance API"
-  - Description: "Financial tracking & notification engine API"
-  - Version: "1.0"
-  - Bearer auth scheme
-  - Tags organizados por módulo
-  - Server URLs: localhost + producción
-
-□ Swagger UI accesible en: GET /api
-```
-
-### 4.4 README.md
-
-```
-□ Estructura del README:
-  - Logo/Banner NotiFinance
-  - Descripción one-liner
-  - Screenshots (dashboard, portfolio, alerts)
-  - Tech stack badges
-  - Quick Start (3 pasos: clone → docker up → open browser)
-  - Features list
-  - Architecture overview
-  - API documentation link (/api)
-  - Environment variables reference
-  - Testing
-  - Deployment options
-  - License
-```
+**Criterio de cierre:** Dólar usa 5 fuentes con validación. Tests verdes.
 
 ---
 
-## 5. Orden de Ejecución Recomendado
+### R2-B03: Acciones/CEDEARs — Scraper Rava
+
+**Objetivo:** Nueva fuente de datos de mercado argentino vía scraping de Rava Bursátil.
+
+**Dependencias:** R2-B01 (health tracking).
+
+**Entregables:**
+1. Instalar `cheerio` como dependencia.
+2. `RavaScraperClient` implementando `IMarketDataProvider`:
+   - Parsea tabla HTML de cotizaciones de `/empresas/cotizaciones`.
+   - Extrae: ticker, último precio, variación %, volumen.
+   - Rate limiting interno: 1 req cada 10s.
+   - User-Agent configurable.
+3. Verificar `robots.txt` de Rava e implementar respeto.
+4. Registrar en `ProviderHealthTracker`.
+5. Tests unitarios con HTML fixture descargado.
+6. NO integrar aún como fuente activa (eso es R2-B05).
+
+**Criterio de cierre:** Scraper funcional con tests sobre HTML fixture. Build verde.
+
+---
+
+### R2-B04: Acciones/CEDEARs — Cliente BYMA Data
+
+**Objetivo:** Agregar BYMA Data como fuente oficial de la bolsa argentina.
+
+**Dependencias:** R2-B01.
+
+**Entregables:**
+1. `BYMADataClient` implementando `IMarketDataProvider`:
+   - Consume `https://open.bymadata.com.ar` API pública.
+   - Mapea respuesta a formato interno.
+2. Registrar en `ProviderHealthTracker`.
+3. Tests unitarios con response fixtures.
+4. NO integrar aún como fuente activa.
+
+**Criterio de cierre:** Client funcional con tests. Build verde.
+
+---
+
+### R2-B05: Provider Scoring y Orquestación
+
+**Objetivo:** Sistema inteligente de selección de fuente basado en salud y confianza.
+
+**Dependencias:** R2-B01, R2-B03, R2-B04.
+
+**Entregables:**
+1. `ProviderScorer` service:
+   - Input: métricas de health de cada provider.
+   - Output: score 0-100 y confidence level (HIGH/MEDIUM/LOW).
+   - Factores: uptime_24h (40%), error_rate_1h (30%), avg_latency (20%), data_age (10%).
+2. `ProviderOrchestrator` service:
+   - Selecciona fuente primaria por scoring para cada tipo de dato.
+   - Fallback automático si primaria falla.
+   - Retorna siempre `{ data, source, confidence, timestamp }`.
+3. Integrar en `MarketQuotesJob`: usar orchestrator en vez de client directo.
+4. Integrar Rava y BYMA como fuentes secundaria/terciaria para acciones.
+5. Tests unitarios: scoring algorithm, orchestrator fallback.
+6. Test de integración: job con orquestación completa.
+
+**Criterio de cierre:** Market data usa orquestación inteligente. Fallback funcional. Tests verdes.
+
+---
+
+### R2-B06: Catálogo Dinámico y Limpieza de Activos
+
+**Objetivo:** Mantener el catálogo de activos actualizado automáticamente.
+
+**Entregables:**
+1. Agregar campos a `market_assets`: `is_active`, `maturity_date`, `last_catalog_check`.
+2. Migración de base de datos.
+3. `CatalogMaintenanceJob` (cron semanal):
+   - Marca `is_active = false` instrumentos con `maturity_date` pasada.
+   - Compara catálogo local vs Data912 live: detecta tickers nuevos (log para revisión manual).
+   - Actualiza `last_catalog_check`.
+4. Filtrar activos inactivos en queries de listado (salvo que se pida explícitamente).
+5. Tests unitarios del job.
+6. Seed actualizado: marcar LECAPs/BONCAPs vencidas, agregar `maturity_date` a bonos conocidos.
+
+**Criterio de cierre:** Job detecta y marca vencidos. Catálogo limpio. Tests verdes.
+
+---
+
+### R2-B07: Renta Fija — TIR, TNA/TEA, Calendario de Cupones
+
+**Objetivo:** Datos descriptivos reales para bonos y LECAPs.
+
+**Dependencias:** R2-B06.
+
+**Entregables:**
+1. Funciones de cálculo financiero:
+   - `calculateYTM(price, couponRate, faceValue, maturityDate, frequency)` — TIR para bonos.
+   - `calculateTNATEA(price, faceValue, maturityDate)` — Para LECAPs/BONCAPs (zero coupon).
+2. Data estática de calendario de cupones para bonos principales: AL30, AL35, GD30, GD35, GD38, GD41, GD46.
+3. Endpoint enriquecido: `GET /api/v1/market-data/assets/:symbol` retorna campos de renta fija cuando aplica.
+4. Tests unitarios con valores conocidos verificados manualmente.
+
+**Criterio de cierre:** Datos de renta fija reales y verificables. Tests verdes.
+
+---
+
+### R2-B08: MEP/CCL — Cálculo Propio
+
+**Objetivo:** Calcular dólar MEP y CCL con precios reales de bonos de la propia app.
+
+**Dependencias:** R2-B05 (precios de bonos confiables).
+
+**Entregables:**
+1. `MEPCCLCalculationService`:
+   - MEP = Precio ARS del bono (ej AL30) / Precio USD del bono (ej AL30D).
+   - CCL = Precio ARS / Precio en NYSE (para GD30).
+   - Usa precios del `ProviderOrchestrator`.
+2. `MEPCCLCalculationJob` (cron cada 5 min, mercado abierto):
+   - Calcula y publica vía WebSocket.
+   - Persiste como quote tipo `DOLLAR_MEP_CALC` y `DOLLAR_CCL_CALC`.
+3. Validación cruzada: comparar MEP calculado vs MEP de DolarApi/Data912, loguear diferencia.
+4. Tests unitarios con precios estáticos conocidos.
+
+**Criterio de cierre:** MEP/CCL calculado con bonos propios, validado contra fuentes. Tests verdes.
+
+---
+
+### R2-B09: Datos Históricos — Backfill
+
+**Objetivo:** Llenar gaps en datos históricos para que los gráficos sean útiles.
+
+**Entregables:**
+1. `HistoricalBackfillService`:
+   - Yahoo Finance: OHLC diario para tickers `.BA` (top acciones argentinas) + US (CEDEARs subyacentes).
+   - Data912 historical endpoints: `/historical/{type}/{symbol}`.
+   - Persiste en `market_quotes` con granularidad diaria.
+2. `HistoricalBackfillJob`:
+   - Cron diario (4 AM): verifica gaps y rellena.
+   - Bajo demanda: endpoint admin `POST /api/v1/market-data/backfill/:symbol` (opcional, solo admin).
+3. Priorización: top 20 acciones panel Merval, top 20 CEDEARs por volumen.
+4. Tests unitarios del dedup/merge al persistir.
+
+**Criterio de cierre:** Gráficos con ≥ 1 año de datos para top activos. Tests verdes.
+
+---
+
+### R2-B10: Noticias — Módulo de Agregación RSS
+
+**Objetivo:** Nuevo módulo de noticias para dar contexto al dashboard.
+
+**Entregables:**
+1. Módulo `news` con estructura hexagonal completa:
+   - Domain: `NewsArticle` entity.
+   - Application: `INewsRepository` interface, `FetchLatestNewsUseCase`, `GetNewsByTickerUseCase`.
+   - Infrastructure: `TypeOrmNewsRepository`, `RSSFeedClient`.
+2. Tabla `news_articles` con migración.
+3. `RSSFeedClient`:
+   - Parsea RSS/Atom XML de Ámbito, Cronista, Infobae.
+   - Extrae: título, URL, fecha de publicación, categoría (si disponible).
+   - Detección básica de tickers mencionados en título (regex contra catálogo de tickers).
+4. `NewsAggregationJob` (cron cada 30 min, configurable):
+   - Fetch feeds → deduplica por URL → persiste nuevos.
+   - TTL: limpia noticias > 7 días.
+5. Endpoints: `GET /api/v1/news`, `GET /api/v1/news?ticker=GGAL`.
+6. Evento WebSocket `news:latest` cuando se detectan noticias nuevas.
+7. Tests unitarios: parsing RSS fixture, deduplicación, ticker detection.
+8. Test E2E: endpoint de noticias.
+
+**Criterio de cierre:** Noticias de 3 fuentes RSS accesibles vía API. Tests verdes.
+
+---
+
+### R2-B11: Enrichment de Cotizaciones
+
+**Objetivo:** Todas las cotizaciones incluyen metadatos de fuente y confianza.
+
+**Dependencias:** R2-B05.
+
+**Entregables:**
+1. Agregar campos `source`, `source_timestamp`, `confidence` a `market_quotes` (migración).
+2. Actualizar todos los DTOs de response de market-data para incluir campos de enrichment.
+3. Actualizar `MarketDataGateway` (WebSocket) para emitir datos enriquecidos.
+4. Backward compatible: campos nuevos son opcionales en responses.
+5. Tests de DTOs y serialización.
+
+**Criterio de cierre:** Toda cotización visible tiene fuente y timestamp. Tests verdes.
+
+---
+
+### R2-B12: Alertas — Validación E2E con Datos Reales
+
+**Objetivo:** Confirmar que el flujo market→alert→notification funciona end-to-end.
+
+**Entregables:**
+1. Test E2E que:
+   - Crea alerta de precio para activo real.
+   - Simula cron de market data con dato real.
+   - Verifica que RabbitMQ recibe evento.
+   - Verifica que notificación se persiste en DB.
+   - Verifica que WebSocket emite al usuario.
+2. Métricas de logging: tiempo de evaluación por ciclo, alertas evaluadas/disparadas.
+3. Smoke test script: `scripts/alert-flow-smoke.js` para validación manual/CI.
+
+**Criterio de cierre:** Flujo completo funcional con datos reales. Test E2E verde.
+
+---
+
+### R2-B13: Portfolio — Precios Reales y Frescura
+
+**Objetivo:** P&L usa precios reales y muestra antigüedad.
+
+**Dependencias:** R2-B11.
+
+**Entregables:**
+1. `PortfolioService.calculatePerformance()` usa precio más reciente de `market_quotes` con `source_timestamp`.
+2. Response de portfolio incluye `priceAge` por holding (minutos desde último precio).
+3. Si precio stale (> threshold), flag `isStale: true`.
+4. Interpolación: días sin datos mantienen último valor conocido (no 0).
+5. Tests unitarios de performance calculation con precios stale.
+
+**Criterio de cierre:** P&L con precios reales. Stale flag funcional. Tests verdes.
+
+---
+
+### R2-B14: QA de Datos Automatizado
+
+**Objetivo:** Scripts que validen calidad de datos en runtime.
+
+**Entregables:**
+1. Actualizar `scripts/market-data-quality.js`:
+   - Comparar cotizaciones contra fuente de referencia (Rava public data).
+   - Report: desviaciones > 3%, activos sin precio, datos > 30 min.
+2. Actualizar `scripts/market-assets-quality.js`:
+   - Verificar que no haya activos vencidos como activos.
+   - Verificar cobertura del panel Merval.
+3. Nuevo `scripts/provider-health-check.js`:
+   - Ping a cada provider y reportar estado.
+4. Comando unificado: `npm run verify:data:quality`.
+
+**Criterio de cierre:** Scripts ejecutables y verificando datos reales.
+
+---
+
+## Detalle de Fases — Frontend
+
+### R2-F01: Componente FreshnessIndicator
+
+**Objetivo:** Componente reutilizable para indicar frescura de datos.
+
+**Entregables:**
+1. `components/common/FreshnessIndicator.tsx`:
+   - Props: `fetchedAt: Date`, `source?: string`, `thresholds?: { green, yellow, red }`.
+   - Badge: dot verde/amarillo/rojo/gris.
+   - Tooltip: "Actualizado hace X min vía [fuente]".
+2. `components/common/StaleDataBanner.tsx`:
+   - Aparece si algún dato del dashboard > 1 hora.
+   - Texto: "Algunos datos pueden estar desactualizados. Última actualización: [hora]."
+3. Hook `useFreshness(fetchedAt: Date)` → retorna `{ status, label, color }`.
+4. Tests unitarios del hook y snapshot tests del componente.
+
+**Criterio de cierre:** Componente funcional con tests. Build verde.
+
+---
+
+### R2-F02: Mensajes de Error Contextuales
+
+**Objetivo:** Reemplazar errores genéricos por mensajes útiles.
+
+**Entregables:**
+1. `components/common/ContextualErrorCard.tsx`:
+   - Props: `section: string`, `lastKnownValue?: number`, `lastKnownAt?: Date`, `onRetry: () => void`.
+   - Muestra: "No pudimos obtener [sección]. Última cotización: $X (hace Y min). [Reintentar]".
+2. Actualizar error boundaries en cada sección del dashboard para usar `ContextualErrorCard`.
+3. Cada sección del dashboard maneja errores independientemente (una sección can fall without affecting others).
+4. Tests: renderizado con distintos estados de error.
+
+**Criterio de cierre:** Errores contextuales en todas las secciones. Tests verdes.
+
+---
+
+### R2-F03: Dashboard — Mejoras Dólar y Riesgo País
+
+**Dependencias:** R2-F01, R2-B11.
+
+**Entregables:**
+1. Panel dólar:
+   - Agregar brecha blue-oficial en % (componente `SpreadIndicator`).
+   - Agregar MEP y CCL calculados (R2-B08).
+   - FreshnessIndicator en cada tipo de dólar.
+2. Panel riesgo país:
+   - Mostrar "±X pts vs cierre anterior".
+   - Sparkline de 7 días (usando datos históricos de DB existentes).
+   - FreshnessIndicator con fuente.
+3. Tests de componentes actualizados.
+
+**Criterio de cierre:** Dólar y riesgo país con datos enriquecidos. Build + test verde.
+
+---
+
+### R2-F04: Dashboard — Top Movers y Estado de Mercado
+
+**Dependencias:** R2-F01.
+
+**Entregables:**
+1. Top movers:
+   - Expandible a top 10 (colapsable).
+   - Columna de volumen.
+   - FreshnessIndicator.
+2. Estado del mercado:
+   - Componente `MarketStatusBadge`:
+   - Evalúa hora actual vs horarios BYMA: pre-market (10:00-11:00), abierto (11:00-17:00), post-market (17:00-17:15), cerrado.
+   - Calendario de feriados argentinos (data estática).
+   - Badge: "Mercado abierto", "Cerrado — abre lunes 11:00", etc.
+3. Tests del cálculo de estado de mercado.
+
+**Criterio de cierre:** Top movers mejorado y estado de mercado funcional. Tests verdes.
+
+---
+
+### R2-F05: Detalle de Activo — Acciones y CEDEARs
+
+**Dependencias:** R2-B11, R2-B09.
+
+**Entregables:**
+1. Acciones:
+   - Descripción de empresa (desde `company_description` del backend).
+   - Gráfico histórico con datos reales (no vacío).
+3. CEDEARs:
+   - Ratio de conversión visible.
+   - Precio subyacente USD.
+   - Tipo de cambio implícito calculado: `precioARS / (precioUSD * ratio)`.
+4. FreshnessIndicator en precio principal.
+5. Tests de cálculos y rendering.
+
+**Criterio de cierre:** Detalle de acciones y CEDEARs con datos reales. Tests verdes.
+
+---
+
+### R2-F06: Detalle de Activo — Bonos y LECAPs
+
+**Dependencias:** R2-B07.
+
+**Entregables:**
+1. Bonos:
+   - Tabla de flujo de fondos: fechas de cupones, montos, moneda.
+   - TIR real mostrada.
+   - Duration.
+2. LECAPs/BONCAPs:
+   - TNA y TEA mostradas.
+   - Fecha de vencimiento prominente.
+   - Indicador "Días al vencimiento: X".
+3. Tests de rendering con datos financieros reales.
+
+**Criterio de cierre:** Detalle de renta fija con datos reales. Tests verdes.
+
+---
+
+### R2-F07: Widget de Noticias
+
+**Dependencias:** R2-B10.
+
+**Entregables:**
+1. `components/dashboard/NewsWidget.tsx`:
+   - Últimas 5 noticias del día.
+   - Cada item: título (link externo), fuente, hora relativa.
+   - Polling cada 5 min (TanStack Query).
+2. En detalle de activo: noticias filtradas por ticker.
+3. Hook `useNews({ ticker?, limit?, category? })`.
+4. Tests del componente y hook.
+
+**Criterio de cierre:** Noticias visibles en dashboard y detalle. Tests verdes.
+
+---
+
+### R2-F08: Panel de Salud de Providers
+
+**Dependencias:** R2-B01.
+
+**Entregables:**
+1. `components/common/ProviderHealthPanel.tsx`:
+   - Tabla: nombre, estado (badge color), uptime 24h, latencia, último éxito/fallo.
+   - Accesible desde footer o sección de settings/debug.
+2. Hook `useProviderHealth()`.
+3. Tests del componente.
+
+**Criterio de cierre:** Panel funcional visible. Tests verdes.
+
+---
+
+### R2-F09: Portfolio — Indicadores de Frescura
+
+**Dependencias:** R2-F01, R2-B13.
+
+**Entregables:**
+1. Cada holding muestra `FreshnessIndicator` junto al precio.
+2. Si precio stale, nota inline: "Último precio: [fecha]".
+3. Totales del portfolio marcan si algún componente tiene precio stale.
+4. Tests de rendering con holdings stale vs fresh.
+
+**Criterio de cierre:** Portfolio con indicadores de frescura. Tests verdes.
+
+---
+
+### R2-F10: QA Visual y Testing E2E Frontend
+
+**Objetivo:** Validación final de todos los cambios de UI en R2.
+
+**Entregables:**
+1. Actualizar tests unitarios de Vitest para componentes modificados.
+2. Actualizar Playwright E2E:
+   - Verificar FreshnessIndicator visible en dashboard.
+   - Verificar error contextual se muestra al simular fallo de API.
+   - Verificar noticias se renderizan.
+3. Visual QA checklist:
+   - [ ] Dashboard con datos reales se ve profesional.
+   - [ ] Indicadores de frescura visibles y correctos.
+   - [ ] Errores contextuales informativos.
+   - [ ] Gráficos con datos (no vacíos para activos del Merval).
+   - [ ] Responsive funcional en mobile.
+
+**Criterio de cierre:** Todos los tests frontend verdes. QA visual aprobado.
+
+---
+
+## Orden de Ejecución Recomendado
 
 ```
-SEMANA 1: Foundation
-├── B1: Auth module + config setup
-├── B2.1-B2.2: Market Data domain + API clients
-└── F1: Frontend project setup
+SEMANA 1 — Infraestructura de providers:
+  R2-B01 → R2-B02 → R2-B03 → R2-B04 → R2-B05
 
-SEMANA 2: Core Data
-├── B2.3-B2.5: Cron jobs + controllers + migrations + seeds
-├── B2.6: Market Data tests
-├── F2: Layout & Navigation
-└── F3: Dashboard page
+SEMANA 2 — Datos confiables:
+  R2-B06 → R2-B07 → R2-B08 → R2-B09
 
-SEMANA 3: Features
-├── B3: Alert module completo
-├── B4: Notification module expansion
-├── F4: Asset Explorer
-└── F5: Asset Detail page (gráficos)
+SEMANA 3 — Backend features + QA:
+  R2-B10 → R2-B11 → R2-B12 → R2-B13 → R2-B14
 
-SEMANA 4: Portfolio & Integration
-├── B5: Portfolio & Watchlist modules
-├── B6: EventType migration & integration
-├── F6: Auth pages
-└── F7: Watchlist & Portfolio pages
+SEMANA 4 — Frontend R2:
+  R2-F01 → R2-F02 → R2-F03 → R2-F04
 
-SEMANA 5: Polish & Ship
-├── B7: Demo mode & seeds
-├── B8: Testing & quality
-├── B9: Documentation
-├── F8: Alerts & Notifications pages
-├── F9: Settings & polish
-└── F10: Final QA
-
-Total estimado: 5 semanas de desarrollo
+SEMANA 5 — Frontend R2 cont:
+  R2-F05 → R2-F06 → R2-F07 → R2-F08 → R2-F09 → R2-F10
 ```
 
 ---
@@ -1117,4 +531,5 @@ Total estimado: 5 semanas de desarrollo
 
 | Versión | Fecha | Cambios |
 |---|---|---|
-| 1.0 | 2026-02-26 | Plan de implementación completo |
+| 1.0 | 2026-02-26 | Plan de implementación original: fases B1-B9, F1-F10 |
+| 2.0 | 2026-02-28 | Reescritura completa: fases atómicas R2, foco en confiabilidad de datos |
