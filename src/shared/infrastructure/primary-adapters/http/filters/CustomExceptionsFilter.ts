@@ -60,6 +60,14 @@ export class CustomExceptionsFilter implements ExceptionFilter {
             message: String(exResponseObj['message']),
             errors: exResponseObj['errors'],
           };
+        } else if (typeof exResponseObj['message'] === 'string') {
+          body = {
+            code: 'HTTP_ERROR',
+            message:
+              status >= HttpStatus.INTERNAL_SERVER_ERROR
+                ? 'Internal server error'
+                : exResponseObj['message'],
+          };
         } else {
           body = {
             code: 'HTTP_ERROR',
@@ -67,11 +75,26 @@ export class CustomExceptionsFilter implements ExceptionFilter {
           };
         }
       } else {
-        body = { code: 'HTTP_ERROR', message: exception.message };
+        body = {
+          code: 'HTTP_ERROR',
+          message:
+            status >= HttpStatus.INTERNAL_SERVER_ERROR
+              ? 'Internal server error'
+              : exception.message,
+        };
       }
     } else if (exception instanceof Error) {
       status = this.mapErrorToStatus(exception);
-      body = { code: exception.name, message: exception.message };
+      body =
+        status >= HttpStatus.INTERNAL_SERVER_ERROR
+          ? {
+              code: 'INTERNAL_ERROR',
+              message: 'Internal server error',
+            }
+          : {
+              code: exception.name,
+              message: exception.message,
+            };
     }
 
     this.logger.error(

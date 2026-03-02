@@ -81,8 +81,10 @@ export class MarketQuote {
     sourceTimestamp?: Date | null;
     confidence?: string | null;
   }): MarketQuote {
+    const assetId = this.assetId;
+
     return new MarketQuote(this.date, {
-      assetId: this.assetId,
+      ...(assetId ? { assetId } : {}),
       priceArs: this.priceArs,
       priceUsd: this.priceUsd,
       openPrice: this.openPrice,

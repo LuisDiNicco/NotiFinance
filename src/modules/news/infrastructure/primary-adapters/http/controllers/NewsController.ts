@@ -25,22 +25,27 @@ export class NewsController {
     }>;
     meta: { page: number; limit: number; total: number; totalPages: number };
   }> {
+    const ticker = query.ticker?.toUpperCase();
+
     const result = await this.getNewsByTickerUseCase.execute({
-      ticker: query.ticker?.toUpperCase(),
+      ...(ticker ? { ticker } : {}),
       page: query.page,
       limit: query.limit,
     });
 
     return {
-      data: result.data.map((article) => ({
-        id: article.id,
-        title: article.title,
-        url: article.url,
-        source: article.source,
-        category: article.category,
-        publishedAt: article.publishedAt.toISOString(),
-        mentionedTickers: article.mentionedTickers,
-      })),
+      data: result.data.map((article) => {
+        const base = {
+          title: article.title,
+          url: article.url,
+          source: article.source,
+          category: article.category,
+          publishedAt: article.publishedAt.toISOString(),
+          mentionedTickers: article.mentionedTickers,
+        };
+
+        return article.id ? { ...base, id: article.id } : base;
+      }),
       meta: {
         page: result.page,
         limit: query.limit,

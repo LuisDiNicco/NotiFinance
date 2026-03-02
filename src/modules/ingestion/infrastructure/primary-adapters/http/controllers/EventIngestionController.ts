@@ -6,9 +6,12 @@ import {
   Post,
   Req,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { EventPayloadRequest } from './request/EventPayloadRequest';
 import { EventIngestionService } from '../../../../application/EventIngestionService';
 
@@ -17,7 +20,10 @@ import { EventIngestionService } from '../../../../application/EventIngestionSer
 export class EventIngestionController {
   private readonly logger = new Logger(EventIngestionController.name);
 
-  constructor(private readonly ingestionService: EventIngestionService) {}
+  constructor(
+    private readonly ingestionService: EventIngestionService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
@@ -40,6 +46,10 @@ export class EventIngestionController {
     @Body() payload: EventPayloadRequest,
     @Req() request: Request,
   ): Promise<{ message: string; eventId: string }> {
+    if (!this.isValidIngestionApiKey(request)) {
+      throw new UnauthorizedException('Invalid ingestion API key');
+    }
+
     const correlationId =
       (request.headers['x-correlation-id'] as string) ||
       'missing-correlation-id';
@@ -55,5 +65,32 @@ export class EventIngestionController {
       message: 'Event accepted for processing',
       eventId: payload.eventId,
     };
+  }
+
+  private isValidIngestionApiKey(request: Request): boolean {
+    const ingestionApiKey = this.configService
+      .get<string>('EVENTS_INGESTION_API_KEY', '')
+      .trim();
+
+    if (!ingestionApiKey) {
+      return true;
+    }
+
+    const headerValue = request.headers['x-ingestion-api-key'];
+    const providedApiKey =
+      typeof headerValue === 'string' ? headerValue.trim() : '';
+
+    if (!providedApiKey) {
+      return false;
+    }
+
+    const expectedBuffer = Buffer.from(ingestionApiKey);
+    const providedBuffer = Buffer.from(providedApiKey);
+
+    if (expectedBuffer.length !== providedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(expectedBuffer, providedBuffer);
   }
 }

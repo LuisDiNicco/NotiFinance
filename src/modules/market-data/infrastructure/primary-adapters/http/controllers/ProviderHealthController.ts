@@ -1,16 +1,29 @@
-import { Controller, Get } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Headers,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { ProviderHealthTracker } from '../../../../application/ProviderHealthTracker';
 
 @ApiTags('Health')
 @Controller('health/providers')
 export class ProviderHealthController {
-  constructor(private readonly providerHealthTracker: ProviderHealthTracker) {}
+  constructor(
+    private readonly providerHealthTracker: ProviderHealthTracker,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get provider health metrics and rolling status' })
   @ApiResponse({ status: 200 })
-  public async getProviderHealth(): Promise<{
+  @ApiResponse({ status: 401, description: 'Invalid monitoring API key' })
+  public async getProviderHealth(
+    @Headers('x-monitoring-api-key') monitoringApiKey?: string,
+  ): Promise<{
     updatedAt: string;
     providers: Array<{
       providerName: string;
@@ -24,6 +37,8 @@ export class ProviderHealthController {
       lastFailureAt: string | null;
     }>;
   }> {
+    this.assertMonitoringAccess(monitoringApiKey);
+
     const snapshot = await this.providerHealthTracker.getProviderHealth();
 
     return {
@@ -40,5 +55,31 @@ export class ProviderHealthController {
         lastFailureAt: provider.lastFailureAt?.toISOString() ?? null,
       })),
     };
+  }
+
+  private assertMonitoringAccess(providedApiKey?: string): void {
+    const expectedApiKey = this.configService
+      .get<string>('MONITORING_API_KEY', '')
+      .trim();
+
+    if (!expectedApiKey) {
+      return;
+    }
+
+    const candidate = (providedApiKey ?? '').trim();
+    if (!candidate) {
+      throw new UnauthorizedException('Invalid monitoring API key');
+    }
+
+    const expectedBuffer = Buffer.from(expectedApiKey);
+    const candidateBuffer = Buffer.from(candidate);
+
+    if (expectedBuffer.length !== candidateBuffer.length) {
+      throw new UnauthorizedException('Invalid monitoring API key');
+    }
+
+    if (!timingSafeEqual(expectedBuffer, candidateBuffer)) {
+      throw new UnauthorizedException('Invalid monitoring API key');
+    }
   }
 }

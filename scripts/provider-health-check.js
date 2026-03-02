@@ -4,6 +4,7 @@ const BASE_URL = process.env.SMOKE_BASE_URL || 'http://localhost:3000';
 const MIN_UPTIME_24H = Number(process.env.PROVIDER_MIN_UPTIME_24H || 50);
 const MAX_ERROR_RATE_1H = Number(process.env.PROVIDER_MAX_ERROR_RATE_1H || 80);
 const PING_TIMEOUT_MS = Number(process.env.PROVIDER_PING_TIMEOUT_MS || 5000);
+const MONITORING_API_KEY = (process.env.MONITORING_API_KEY || '').trim();
 
 const PROVIDER_PING_TARGETS = {
   'dolarapi.com': process.env.PING_DOLARAPI_URL || 'https://dolarapi.com/v1/dolares',
@@ -26,8 +27,20 @@ const PROVIDER_PING_TARGETS = {
     'https://www.alphavantage.co/query?function=OVERVIEW&symbol=IBM&apikey=demo',
 };
 
+const REQUIRED_PROVIDERS = String(
+  process.env.REQUIRED_HEALTH_PROVIDERS || Object.keys(PROVIDER_PING_TARGETS).join(','),
+)
+  .split(',')
+  .map((providerName) => providerName.trim())
+  .filter(Boolean);
+
 async function fetchJson(url) {
-  const response = await fetch(url);
+  const headers = {};
+  if (MONITORING_API_KEY) {
+    headers['x-monitoring-api-key'] = MONITORING_API_KEY;
+  }
+
+  const response = await fetch(url, { headers });
   if (!response.ok) {
     throw new Error(`${url} -> HTTP ${response.status}`);
   }
@@ -69,8 +82,19 @@ async function pingUrl(url, timeoutMs) {
 async function main() {
   const payload = await fetchJson(`${BASE_URL}/api/v1/health/providers`);
   const providers = Array.isArray(payload?.providers) ? payload.providers : [];
+  const providerNames = new Set(
+    providers
+      .map((provider) => String(provider.providerName || '').trim())
+      .filter(Boolean),
+  );
 
   const failures = [];
+
+  for (const requiredProvider of REQUIRED_PROVIDERS) {
+    if (!providerNames.has(requiredProvider)) {
+      failures.push(`missing provider health entry: ${requiredProvider}`);
+    }
+  }
 
   for (const provider of providers) {
     const status = String(provider.status || 'UNKNOWN');
@@ -120,6 +144,10 @@ async function main() {
   console.log(`PROVIDER_MIN_UPTIME_24H=${MIN_UPTIME_24H}`);
   console.log(`PROVIDER_MAX_ERROR_RATE_1H=${MAX_ERROR_RATE_1H}`);
   console.log(`PROVIDER_PING_TIMEOUT_MS=${PING_TIMEOUT_MS}`);
+  console.log(
+    `MONITORING_API_KEY_CONFIGURED=${MONITORING_API_KEY.length > 0}`,
+  );
+  console.log(`REQUIRED_HEALTH_PROVIDERS=${REQUIRED_PROVIDERS.join(',')}`);
 
   if (failures.length > 0) {
     console.log(`FAILURES=${failures.length}`);

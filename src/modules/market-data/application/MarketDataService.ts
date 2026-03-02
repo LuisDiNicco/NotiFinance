@@ -359,11 +359,16 @@ export class MarketDataService {
       );
 
       if (!asset.id) {
-        return quotes;
+        return quotes.map((quote) =>
+          this.ensureQuoteEnrichment(quote, 'historical-provider'),
+        );
       }
 
       const quotesWithAsset = quotes.map((quote) =>
-        quote.withAssetId(asset.id!),
+        this.ensureQuoteEnrichment(
+          quote.withAssetId(asset.id!),
+          'historical-provider',
+        ),
       );
       await this.quoteRepository.saveBulkQuotes(quotesWithAsset);
       return quotesWithAsset;
@@ -383,7 +388,9 @@ export class MarketDataService {
       );
 
       if (persistedQuotes.length > 0) {
-        return persistedQuotes;
+        return persistedQuotes.map((quote) =>
+          this.ensureQuoteEnrichment(quote, 'persisted-market-quotes'),
+        );
       }
 
       throw new MarketDataUnavailableError(asset.ticker);
@@ -418,6 +425,16 @@ export class MarketDataService {
       startDate,
       endDate,
     );
+  }
+
+  private ensureQuoteEnrichment(
+    quote: MarketQuote,
+    fallbackSource: string,
+  ): MarketQuote {
+    return quote.withEnrichment({
+      source: quote.source ?? fallbackSource,
+      sourceTimestamp: quote.sourceTimestamp ?? quote.date,
+    });
   }
 
   public async getAssetStats(

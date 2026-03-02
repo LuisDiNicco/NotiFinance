@@ -56,8 +56,8 @@ describe('PortfolioService', () => {
       get: jest.fn(),
     } as unknown as jest.Mocked<ConfigService>;
 
-    configService.get.mockImplementation(
-      (key: string, defaultValue?: number) => {
+    (configService.get as jest.Mock).mockImplementation(
+      (key: string, defaultValue?: unknown) => {
         if (key === 'market.dataStaleThresholdMinutes') {
           return 30;
         }

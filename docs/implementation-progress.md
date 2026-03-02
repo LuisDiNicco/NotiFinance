@@ -21,7 +21,7 @@ El MVP fue entregado con la siguiente cobertura:
 | **Backend — Preferences** | ✅ Completo | Preferencias por usuario |
 | **Backend — Template** | ✅ Completo | 7 plantillas de notificación |
 | **Backend — Ingestion** | ✅ Completo | Event-driven con RabbitMQ |
-| **Backend — Testing** | ✅ 161/161 unit, 44/44 E2E | 36 suites, 11 E2E suites |
+| **Backend — Testing** | ✅ 161/161 unit, 46/46 E2E | 36 suites, 11 E2E suites |
 | **Frontend — Todas las fases** | ✅ Completo | Auth, dashboard, detalle, portfolio, alertas, watchlist, preferencias, notificaciones |
 | **Frontend — Testing** | ✅ 77/77 unit, 3/3 E2E | 28 archivos de test |
 | **Infraestructura** | ✅ Completo | Docker Compose, scripts de QA |
@@ -72,7 +72,7 @@ El MVP fue entregado con la siguiente cobertura:
 | Métrica | Valor actual | Target R2 |
 |---|---|---|
 | Tests unitarios backend | 161 passing | +~50 nuevos |
-| Tests E2E backend | 44 passing | +~15 nuevos |
+| Tests E2E backend | 46 passing | +~15 nuevos |
 | Tests unitarios frontend | 77 passing | +~30 nuevos |
 | Tests E2E frontend | 3 passing | +~5 nuevos |
 | Fuentes de datos activas | 5 | 8-10 |
@@ -102,3 +102,4 @@ El MVP fue entregado con la siguiente cobertura:
 | 2026-03-02 | R2-B13 completada: `PortfolioService` ahora calcula holdings con precio más reciente y `sourceTimestamp`, expone frescura por holding (`priceAge`, `isStale`) usando threshold configurable (`DATA_STALE_THRESHOLD_MINUTES`), y genera performance por período con interpolación de días sin cotización manteniendo último valor conocido (sin ceros artificiales); cobertura agregada en `PortfolioService.spec` para stale/interpolación. |
 | 2026-03-02 | R2-B14 completada: actualización de scripts de calidad en runtime: `scripts/market-data-quality.js` (comparación backend vs referencia Rava, desvíos >3%, precios faltantes y stale > threshold), `scripts/market-assets-quality.js` (validación de activos vencidos marcados como activos y cobertura de tickers del panel líder Merval), nuevo `scripts/provider-health-check.js` (reporte y umbrales de salud por provider), y comando unificado `npm run verify:data:quality` integrado en `verify:backend:runtime`. |
 | 2026-03-02 | Auditoría profunda backend (B01–B14): cierre de desvíos finos — B13 ajustado para priorizar lectura de `market_quotes` persistida en holdings/performance antes de fallback a proveedor; B14 ajustado para que `scripts/provider-health-check.js` ejecute ping HTTP directo por provider además del snapshot interno. Revalidación completa en verde (`lint`, `test:unit`, `test:e2e`). |
+| 2026-03-02 | Reauditoría backend con 3 agentes (arquitectura, QA, seguridad): hardening transversal aplicado en `/api/v1/events` (API key opcional + comparación constante), validación de entorno en producción (JWT secretos seguros + `EVENTS_INGESTION_API_KEY`), sanitización de respuestas 5xx en filtro global, `market:dollar` WebSocket enriquecido con `source/sourceTimestamp`, normalización de enrichment para cotizaciones históricas visibles, mejora de confiabilidad en `AlertEvaluationConsumer` (`nack` en error cuando aplica), y endurecimiento de scripts runtime (`endpoint-smoke`, `provider-health-check`, `market-data-quality`). Revalidación final en verde (`lint`, `test:unit`, `test:e2e`). |

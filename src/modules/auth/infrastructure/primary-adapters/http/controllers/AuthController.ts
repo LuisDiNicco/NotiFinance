@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../../../../application/AuthService';
 import { RegisterRequest } from './request/RegisterRequest';
@@ -51,6 +52,7 @@ export class AuthController {
   }
 
   @Post('demo')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Start a recruiter-friendly demo session' })
   @ApiResponse({ status: 201, type: AuthResponse })
   public async demo(): Promise<AuthResponse> {

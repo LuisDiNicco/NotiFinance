@@ -71,6 +71,18 @@ class EnvironmentVariables {
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN: string = '7d';
 
+  @IsString()
+  @IsOptional()
+  EVENTS_INGESTION_API_KEY: string = '';
+
+  @IsString()
+  @IsOptional()
+  MONITORING_API_KEY: string = '';
+
+  @IsString()
+  @IsOptional()
+  TEMPLATE_ADMIN_API_KEY: string = '';
+
   @IsNumber()
   @IsOptional()
   AUTH_LOGIN_MAX_ATTEMPTS: number = 5;
@@ -154,5 +166,24 @@ export function validate(config: Record<string, unknown>) {
   if (errors.length > 0) {
     throw new Error(errors.toString());
   }
+
+  const isProduction = validatedConfig.NODE_ENV === Environment.Production;
+
+  if (
+    isProduction &&
+    (validatedConfig.JWT_SECRET === 'change-me-access-secret' ||
+      validatedConfig.JWT_REFRESH_SECRET === 'change-me-refresh-secret')
+  ) {
+    throw new Error(
+      'JWT secrets must be configured with secure values in production',
+    );
+  }
+
+  if (isProduction && !validatedConfig.EVENTS_INGESTION_API_KEY.trim()) {
+    throw new Error(
+      'EVENTS_INGESTION_API_KEY must be configured in production',
+    );
+  }
+
   return validatedConfig;
 }

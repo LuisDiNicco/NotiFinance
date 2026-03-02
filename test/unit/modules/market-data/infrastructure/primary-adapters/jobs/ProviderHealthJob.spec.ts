@@ -1,5 +1,6 @@
 import { ProviderHealthJob } from '../../../../../../../src/modules/market-data/infrastructure/primary-adapters/jobs/ProviderHealthJob';
 import { ProviderHealthTracker } from '../../../../../../../src/modules/market-data/application/ProviderHealthTracker';
+import { ProviderCheckStatus } from '../../../../../../../src/modules/market-data/domain/entities/ProviderHealth';
 
 describe('ProviderHealthJob', () => {
   let job: ProviderHealthJob;
@@ -16,7 +17,7 @@ describe('ProviderHealthJob', () => {
     tracker.refreshRollingMetrics.mockResolvedValue([
       {
         providerName: 'data912.com',
-        status: 'SUCCESS',
+        status: ProviderCheckStatus.SUCCESS,
         checks24h: 10,
         uptime24h: 90,
         errorRate1h: 0,

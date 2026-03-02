@@ -350,7 +350,7 @@ describe('MarketDataService', () => {
     expect(quoteRepository.saveBulkQuotes).toHaveBeenCalledTimes(1);
   });
 
-  it('returns provider historical quotes as-is when asset has no id', async () => {
+  it('returns provider historical quotes enriched when asset has no id', async () => {
     const asset = new Asset(
       'GGAL',
       'Galicia',
@@ -369,7 +369,11 @@ describe('MarketDataService', () => {
 
     const result = await service.getAssetQuotes('GGAL', 10);
 
-    expect(result).toEqual(historical);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.source).toBe('historical-provider');
+    expect(result[0]?.sourceTimestamp?.toISOString()).toBe(
+      '2024-01-01T00:00:00.000Z',
+    );
     expect(quoteRepository.saveBulkQuotes).not.toHaveBeenCalled();
   });
 
@@ -394,7 +398,11 @@ describe('MarketDataService', () => {
 
     const result = await service.getAssetQuotes('GGAL', 15);
 
-    expect(result).toEqual(persisted);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.source).toBe('persisted-market-quotes');
+    expect(result[0]?.sourceTimestamp?.toISOString()).toBe(
+      '2024-01-01T00:00:00.000Z',
+    );
   });
 
   it('throws MarketDataUnavailableError when provider fails and persisted historical quotes are empty', async () => {

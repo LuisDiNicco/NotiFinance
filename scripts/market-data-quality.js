@@ -11,6 +11,9 @@ const MAX_DEVIATION_PCT = Number(
 const DATA_STALE_THRESHOLD_MINUTES = Number(
   process.env.DATA_STALE_THRESHOLD_MINUTES || 30,
 );
+const FAIL_ON_MISSING_REFERENCE =
+  String(process.env.MARKET_QUALITY_FAIL_ON_MISSING_REFERENCE || 'true') ===
+  'true';
 
 const MERV_TICKERS = [
   'GGAL',
@@ -181,7 +184,12 @@ async function main() {
 
     const referencePrice = ravaReference.get(ticker);
     if (!referencePrice || referencePrice <= 0) {
-      warnings.push(`${ticker}: missing Rava reference`);
+      const message = `${ticker}: missing Rava reference`;
+      if (FAIL_ON_MISSING_REFERENCE) {
+        failures.push(message);
+      } else {
+        warnings.push(message);
+      }
       checks.push(
         `${ticker}: backend=${backendPrice.toFixed(2)} age=${priceAgeMinutes ?? 'null'}m ref=n/a`,
       );
@@ -206,6 +214,9 @@ async function main() {
   console.log(`RAVA_QUOTES_URL=${RAVA_QUOTES_URL}`);
   console.log(`MARKET_QUALITY_MAX_DEVIATION_PCT=${MAX_DEVIATION_PCT}`);
   console.log(`DATA_STALE_THRESHOLD_MINUTES=${DATA_STALE_THRESHOLD_MINUTES}`);
+  console.log(
+    `MARKET_QUALITY_FAIL_ON_MISSING_REFERENCE=${FAIL_ON_MISSING_REFERENCE}`,
+  );
 
   for (const check of checks) {
     console.log(`CHECK ${check}`);

@@ -3,9 +3,11 @@ import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { NewsArticle } from '../../../domain/entities/NewsArticle';
 
+const WS_CORS_ORIGIN = process.env['CORS_ORIGIN'] || 'http://localhost:3000';
+
 @WebSocketGateway({
   namespace: '/news',
-  cors: { origin: '*' },
+  cors: { origin: WS_CORS_ORIGIN },
 })
 @Injectable()
 export class NewsGateway {

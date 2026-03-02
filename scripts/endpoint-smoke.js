@@ -114,15 +114,52 @@ async function main() {
     }
   }
 
-  const failures = results.filter((result) => result.status === 500 || result.status === -1);
+  const failures = [];
+
+  for (const result of results) {
+    const key = `${result.method} ${result.path}`;
+    if (result.status === -1) {
+      failures.push(`${key} -> transport error: ${result.body}`);
+      continue;
+    }
+
+    const isPublicEndpoint = publicEndpoints.some(
+      ([method, path]) => method === result.method && path === result.path,
+    );
+    const isUnauthProtected = unauthProtectedEndpoints.some(
+      ([method, path]) => method === result.method && path === result.path,
+    );
+    const isAuthProtected = authProtectedEndpoints.some(
+      ([method, path]) => method === result.method && path === result.path,
+    );
+
+    if (isPublicEndpoint && (result.status < 200 || result.status >= 300)) {
+      failures.push(`${key} -> expected 2xx, got ${result.status}`);
+      continue;
+    }
+
+    if (isUnauthProtected && ![401, 403].includes(result.status)) {
+      failures.push(`${key} -> expected 401/403 without token, got ${result.status}`);
+      continue;
+    }
+
+    if (isAuthProtected && demoToken && (result.status < 200 || result.status >= 300)) {
+      failures.push(`${key} -> expected 2xx with demo token, got ${result.status}`);
+      continue;
+    }
+
+    if (result.status >= 500) {
+      failures.push(`${key} -> server error ${result.status}: ${result.body}`);
+    }
+  }
 
   console.log(`SMOKE_BASE_URL=${BASE_URL}`);
   console.log(`TOTAL=${results.length}`);
-  console.log(`FAIL500=${failures.length}`);
+  console.log(`FAILURES=${failures.length}`);
 
   if (failures.length > 0) {
     for (const failure of failures) {
-      console.log(`${failure.method} ${failure.path} -> ${failure.status} :: ${failure.body}`);
+      console.log(`FAIL ${failure}`);
     }
     process.exit(1);
   }

@@ -11,7 +11,10 @@ import { EmailAlreadyExistsError } from '../../../../../src/modules/auth/domain/
 import { InvalidCredentialsError } from '../../../../../src/modules/auth/domain/errors/InvalidCredentialsError';
 import { AccountTemporarilyLockedError } from '../../../../../src/modules/auth/domain/errors/AccountTemporarilyLockedError';
 import { DemoSeedService } from '../../../../../src/modules/auth/application/DemoSeedService';
-import { RedisService } from '../../../../../src/shared/infrastructure/base/redis/redis.service';
+import {
+  ILoginAttemptStore,
+  LOGIN_ATTEMPT_STORE,
+} from '../../../../../src/modules/auth/application/ILoginAttemptStore';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthService', () => {
@@ -19,12 +22,7 @@ describe('AuthService', () => {
   let repository: jest.Mocked<IUserRepository>;
   let jwtService: jest.Mocked<JwtService>;
   let demoSeedService: jest.Mocked<DemoSeedService>;
-  let redisService: {
-    get: jest.Mock;
-    increment: jest.Mock;
-    set: jest.Mock;
-    delete: jest.Mock;
-  };
+  let loginAttemptStore: jest.Mocked<ILoginAttemptStore>;
 
   beforeEach(async () => {
     repository = {
@@ -50,11 +48,10 @@ describe('AuthService', () => {
       createDemoUserWithSeedData: jest.fn(),
     } as unknown as jest.Mocked<DemoSeedService>;
 
-    redisService = {
-      get: jest.fn().mockResolvedValue(null),
-      increment: jest.fn().mockResolvedValue(1),
-      set: jest.fn().mockResolvedValue(undefined),
-      delete: jest.fn().mockResolvedValue(undefined),
+    loginAttemptStore = {
+      isLoginLocked: jest.fn().mockResolvedValue(false),
+      registerFailedAttempt: jest.fn().mockResolvedValue(undefined),
+      clearFailedLoginState: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -85,8 +82,8 @@ describe('AuthService', () => {
           useValue: demoSeedService,
         },
         {
-          provide: RedisService,
-          useValue: redisService,
+          provide: LOGIN_ATTEMPT_STORE,
+          useValue: loginAttemptStore,
         },
       ],
     }).compile();
@@ -160,10 +157,11 @@ describe('AuthService', () => {
     await expect(
       service.login('bad@example.com', 'wrong-password'),
     ).rejects.toThrow(InvalidCredentialsError);
-    expect(redisService.increment).toHaveBeenCalledWith(
-      'auth:login:attempts:bad@example.com',
-      900,
-    );
+    expect(loginAttemptStore.registerFailedAttempt).toHaveBeenCalledWith({
+      email: 'bad@example.com',
+      lockoutSeconds: 900,
+      maxFailedLoginAttempts: 5,
+    });
   });
 
   it('throws InvalidCredentialsError on bad login for wrong password', async () => {
@@ -179,14 +177,15 @@ describe('AuthService', () => {
     await expect(
       service.login('test@example.com', 'wrong-password'),
     ).rejects.toThrow(InvalidCredentialsError);
-    expect(redisService.increment).toHaveBeenCalledWith(
-      'auth:login:attempts:test@example.com',
-      900,
-    );
+    expect(loginAttemptStore.registerFailedAttempt).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      lockoutSeconds: 900,
+      maxFailedLoginAttempts: 5,
+    });
   });
 
   it('throws AccountTemporarilyLockedError when account lock key exists', async () => {
-    redisService.get.mockResolvedValue('1');
+    loginAttemptStore.isLoginLocked.mockResolvedValue(true);
 
     await expect(
       service.login('test@example.com', 'any-password'),
@@ -311,8 +310,8 @@ describe('AuthService', () => {
           useValue: demoSeedService,
         },
         {
-          provide: RedisService,
-          useValue: redisService,
+          provide: LOGIN_ATTEMPT_STORE,
+          useValue: loginAttemptStore,
         },
       ],
     }).compile();
@@ -350,8 +349,14 @@ describe('AuthService', () => {
             }),
           },
         },
-        { provide: DemoSeedService, useValue: demoSeedService },
-        { provide: RedisService, useValue: redisService },
+        {
+          provide: DemoSeedService,
+          useValue: demoSeedService,
+        },
+        {
+          provide: LOGIN_ATTEMPT_STORE,
+          useValue: loginAttemptStore,
+        },
       ],
     }).compile();
 
@@ -388,8 +393,14 @@ describe('AuthService', () => {
             }),
           },
         },
-        { provide: DemoSeedService, useValue: demoSeedService },
-        { provide: RedisService, useValue: redisService },
+        {
+          provide: DemoSeedService,
+          useValue: demoSeedService,
+        },
+        {
+          provide: LOGIN_ATTEMPT_STORE,
+          useValue: loginAttemptStore,
+        },
       ],
     }).compile();
 
@@ -426,8 +437,14 @@ describe('AuthService', () => {
             }),
           },
         },
-        { provide: DemoSeedService, useValue: demoSeedService },
-        { provide: RedisService, useValue: redisService },
+        {
+          provide: DemoSeedService,
+          useValue: demoSeedService,
+        },
+        {
+          provide: LOGIN_ATTEMPT_STORE,
+          useValue: loginAttemptStore,
+        },
       ],
     }).compile();
 

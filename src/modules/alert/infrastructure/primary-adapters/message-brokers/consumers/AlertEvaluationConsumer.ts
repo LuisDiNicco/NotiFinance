@@ -21,6 +21,7 @@ interface RabbitMQMessage {
 
 interface RmqChannelRef {
   ack(message: unknown): void;
+  nack?(message: unknown, allUpTo?: boolean, requeue?: boolean): void;
 }
 
 @Controller()
@@ -164,6 +165,12 @@ export class AlertEvaluationConsumer {
         `[Trace: ${correlationId}] Alert evaluation failed after ${Date.now() - startedAt}ms`,
         error,
       );
+
+      if (typeof channel.nack === 'function') {
+        channel.nack(originalMsg, false, false);
+        return;
+      }
+
       channel.ack(originalMsg);
     }
   }

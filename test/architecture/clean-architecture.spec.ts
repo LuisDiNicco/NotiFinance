@@ -49,6 +49,7 @@ describe('Clean Architecture constraints', () => {
     for (const filePath of applicationFiles) {
       const content = readFileSync(filePath, 'utf8');
       expect(content).not.toMatch(/from .*modules\/.+\/infrastructure\//);
+      expect(content).not.toMatch(/from .*shared\/infrastructure\//);
     }
   });
 
@@ -63,6 +64,7 @@ describe('Clean Architecture constraints', () => {
       'template',
       'portfolio',
       'watchlist',
+      'news',
     ];
 
     for (const moduleName of expectedModules) {

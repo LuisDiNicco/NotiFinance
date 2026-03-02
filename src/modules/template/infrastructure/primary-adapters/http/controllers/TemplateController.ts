@@ -6,7 +6,10 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Headers,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { TemplateCompilerService } from '../../../../application/TemplateCompilerService';
 import { TemplateRequest } from './request/TemplateRequest';
@@ -52,8 +55,14 @@ export class TemplateController {
     },
   })
   @ApiResponse({ status: 400, description: 'Invalid payload' })
+  @ApiResponse({ status: 401, description: 'Invalid template admin API key' })
   @HttpCode(HttpStatus.OK)
-  async testCompile(@Body() payload: TestCompileRequest) {
+  async testCompile(
+    @Headers('x-template-admin-key') templateAdminKey: string | undefined,
+    @Body() payload: TestCompileRequest,
+  ) {
+    this.assertTemplateAdminAccess(templateAdminKey);
+
     return this.templateService.compileTemplate(
       payload.eventType,
       payload.context,
@@ -67,11 +76,39 @@ export class TemplateController {
     description: 'Template saved successfully',
     type: NotificationTemplateResponse,
   })
+  @ApiResponse({ status: 401, description: 'Invalid template admin API key' })
   async createOrUpdateTemplate(
+    @Headers('x-template-admin-key') templateAdminKey: string | undefined,
     @Body() payload: TemplateRequest,
   ): Promise<NotificationTemplateResponse> {
+    this.assertTemplateAdminAccess(templateAdminKey);
+
     const template = payload.toEntity();
     const saved = await this.templateService.saveTemplate(template);
     return NotificationTemplateResponse.fromEntity(saved);
+  }
+
+  private assertTemplateAdminAccess(providedApiKey?: string): void {
+    const expectedApiKey = (process.env['TEMPLATE_ADMIN_API_KEY'] ?? '').trim();
+
+    if (!expectedApiKey) {
+      return;
+    }
+
+    const candidate = (providedApiKey ?? '').trim();
+    if (!candidate) {
+      throw new UnauthorizedException('Invalid template admin API key');
+    }
+
+    const expectedBuffer = Buffer.from(expectedApiKey);
+    const candidateBuffer = Buffer.from(candidate);
+
+    if (expectedBuffer.length !== candidateBuffer.length) {
+      throw new UnauthorizedException('Invalid template admin API key');
+    }
+
+    if (!timingSafeEqual(expectedBuffer, candidateBuffer)) {
+      throw new UnauthorizedException('Invalid template admin API key');
+    }
   }
 }

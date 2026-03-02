@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { EventIngestionController } from '../src/modules/ingestion/infrastructure/primary-adapters/http/controllers/EventIngestionController';
 import { EventIngestionService } from '../src/modules/ingestion/application/EventIngestionService';
@@ -9,12 +10,16 @@ import { CustomExceptionsFilter } from '../src/shared/infrastructure/primary-ada
 describe('IngestionController (e2e)', () => {
   let app: INestApplication;
   const mockPublisher = { publishEvent: jest.fn() };
+  const ingestionApiKey = 'test-ingestion-key';
+  const previousIngestionApiKey = process.env['EVENTS_INGESTION_API_KEY'];
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   beforeAll(async () => {
+    process.env['EVENTS_INGESTION_API_KEY'] = ingestionApiKey;
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [EventIngestionController],
       providers: [
@@ -22,6 +27,13 @@ describe('IngestionController (e2e)', () => {
         {
           provide: EVENT_PUBLISHER,
           useValue: mockPublisher,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string, defaultValue?: string) =>
+              process.env[key] ?? defaultValue,
+          },
         },
       ],
     }).compile();
@@ -37,6 +49,38 @@ describe('IngestionController (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+
+    if (previousIngestionApiKey == null) {
+      delete process.env['EVENTS_INGESTION_API_KEY'];
+      return;
+    }
+
+    process.env['EVENTS_INGESTION_API_KEY'] = previousIngestionApiKey;
+  });
+
+  it('/events (POST) - should reject when ingestion api key is missing', () => {
+    return request(app.getHttpServer())
+      .post('/api/v1/events')
+      .send({
+        eventId: '550e8400-e29b-41d4-a716-446655440000',
+        eventType: 'market.quote.updated',
+        recipientId: 'user-123',
+        metadata: { assetId: 'asset-1', closePrice: 8025.5 },
+      })
+      .expect(401);
+  });
+
+  it('/events (POST) - should reject when ingestion api key is invalid', () => {
+    return request(app.getHttpServer())
+      .post('/api/v1/events')
+      .set('x-ingestion-api-key', 'wrong-key')
+      .send({
+        eventId: '650e8400-e29b-41d4-a716-446655440000',
+        eventType: 'market.quote.updated',
+        recipientId: 'user-123',
+        metadata: { assetId: 'asset-1', closePrice: 8025.5 },
+      })
+      .expect(401);
   });
 
   it('/events (POST) - should accept valid payload', () => {
@@ -44,6 +88,7 @@ describe('IngestionController (e2e)', () => {
 
     return request(app.getHttpServer())
       .post('/api/v1/events')
+      .set('x-ingestion-api-key', ingestionApiKey)
       .set('x-correlation-id', 'test-corr-id')
       .send({
         eventId: '550e8400-e29b-41d4-a716-446655440000',
@@ -66,11 +111,13 @@ describe('IngestionController (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/api/v1/events')
+      .set('x-ingestion-api-key', ingestionApiKey)
       .send(payload)
       .expect(202);
 
     await request(app.getHttpServer())
       .post('/api/v1/events')
+      .set('x-ingestion-api-key', ingestionApiKey)
       .send(payload)
       .expect(202);
 
@@ -80,6 +127,7 @@ describe('IngestionController (e2e)', () => {
   it('/events (POST) - should fail on schema validation error', () => {
     return request(app.getHttpServer())
       .post('/api/v1/events')
+      .set('x-ingestion-api-key', ingestionApiKey)
       .send({
         eventId: '550e8400-e29b-41d4-a716-446655440000',
         eventType: 'invalid.type',

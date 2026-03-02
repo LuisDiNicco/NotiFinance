@@ -11,6 +11,8 @@ import { AuthController } from './infrastructure/primary-adapters/http/controlle
 import { JwtStrategy } from './infrastructure/secondary-adapters/security/JwtStrategy';
 import { DemoSeedService } from './application/DemoSeedService';
 import { DemoUsersCleanupJob } from './infrastructure/primary-adapters/jobs/DemoUsersCleanupJob';
+import { LOGIN_ATTEMPT_STORE } from './application/ILoginAttemptStore';
+import { RedisLoginAttemptStore } from './infrastructure/secondary-adapters/security/RedisLoginAttemptStore';
 import { PortfolioModule } from '../portfolio/portfolio.module';
 import { WatchlistModule } from '../watchlist/watchlist.module';
 import { AlertModule } from '../alert/alert.module';
@@ -67,6 +69,10 @@ import { MarketDataModule } from '../market-data/market-data.module';
     {
       provide: USER_REPOSITORY,
       useClass: UserRepository,
+    },
+    {
+      provide: LOGIN_ATTEMPT_STORE,
+      useClass: RedisLoginAttemptStore,
     },
   ],
   exports: [AuthService],

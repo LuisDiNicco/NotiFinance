@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { INewsFeedClient, NEWS_FEED_CLIENT } from './INewsFeedClient';
-import { INewsRepository, NEWS_REPOSITORY } from './INewsRepository';
+import { NEWS_FEED_CLIENT, type INewsFeedClient } from './INewsFeedClient';
+import { NEWS_REPOSITORY, type INewsRepository } from './INewsRepository';
 import { NewsArticle } from '../domain/entities/NewsArticle';
 
 export interface FetchLatestNewsResult {

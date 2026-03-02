@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { MarketController } from '../src/modules/market-data/infrastructure/primary-adapters/http/controllers/MarketController';
 import { AssetController } from '../src/modules/market-data/infrastructure/primary-adapters/http/controllers/AssetController';
@@ -187,6 +188,12 @@ describe('Market data endpoints (e2e)', () => {
         {
           provide: ProviderHealthTracker,
           useValue: providerHealthTrackerMock,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((_: string, defaultValue?: string) => defaultValue),
+          },
         },
       ],
     }).compile();

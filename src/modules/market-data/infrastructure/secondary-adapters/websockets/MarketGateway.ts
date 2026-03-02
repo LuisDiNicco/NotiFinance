@@ -11,9 +11,11 @@ import { Socket } from 'socket.io';
 import { DollarQuote } from '../../../domain/entities/DollarQuote';
 import { CountryRisk } from '../../../domain/entities/CountryRisk';
 
+const WS_CORS_ORIGIN = process.env['CORS_ORIGIN'] || 'http://localhost:3000';
+
 @WebSocketGateway({
   namespace: '/market',
-  cors: { origin: '*' },
+  cors: { origin: WS_CORS_ORIGIN },
 })
 @Injectable()
 export class MarketGateway {
@@ -68,6 +70,8 @@ export class MarketGateway {
       type: quote.type,
       buyPrice: quote.buyPrice,
       sellPrice: quote.sellPrice,
+      source: quote.source,
+      sourceTimestamp: quote.timestamp.toISOString(),
     }));
     const eventPayload = {
       quotes: quotePayload,

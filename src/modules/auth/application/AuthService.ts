@@ -7,8 +7,11 @@ import { User } from '../domain/entities/User';
 import { EmailAlreadyExistsError } from '../domain/errors/EmailAlreadyExistsError';
 import { InvalidCredentialsError } from '../domain/errors/InvalidCredentialsError';
 import { DemoSeedService } from './DemoSeedService';
-import { RedisService } from '../../../shared/infrastructure/base/redis/redis.service';
 import { AccountTemporarilyLockedError } from '../domain/errors/AccountTemporarilyLockedError';
+import {
+  LOGIN_ATTEMPT_STORE,
+  type ILoginAttemptStore,
+} from './ILoginAttemptStore';
 
 interface TokenPayload {
   sub: string;
@@ -33,7 +36,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly demoSeedService: DemoSeedService,
-    private readonly redisService: RedisService,
+    @Inject(LOGIN_ATTEMPT_STORE)
+    private readonly loginAttemptStore: ILoginAttemptStore,
   ) {
     this.maxFailedLoginAttempts = this.configService.get<number>(
       'auth.loginMaxAttempts',
@@ -213,34 +217,20 @@ export class AuthService {
     };
   }
 
-  private getFailedAttemptsKey(email: string): string {
-    return `auth:login:attempts:${email}`;
-  }
-
-  private getLockKey(email: string): string {
-    return `auth:login:locked:${email}`;
-  }
-
   private async isLoginLocked(email: string): Promise<boolean> {
-    const lock = await this.redisService.get(this.getLockKey(email));
-    return lock === '1';
+    return this.loginAttemptStore.isLoginLocked(email);
   }
 
   private async registerFailedLoginAttempt(email: string): Promise<void> {
     const lockoutSeconds = this.lockoutMinutes * 60;
-    const attempts = await this.redisService.increment(
-      this.getFailedAttemptsKey(email),
+    await this.loginAttemptStore.registerFailedAttempt({
+      email,
       lockoutSeconds,
-    );
-
-    if (attempts >= this.maxFailedLoginAttempts) {
-      await this.redisService.set(this.getLockKey(email), '1', lockoutSeconds);
-      await this.redisService.delete(this.getFailedAttemptsKey(email));
-    }
+      maxFailedLoginAttempts: this.maxFailedLoginAttempts,
+    });
   }
 
   private async clearFailedLoginState(email: string): Promise<void> {
-    await this.redisService.delete(this.getFailedAttemptsKey(email));
-    await this.redisService.delete(this.getLockKey(email));
+    await this.loginAttemptStore.clearFailedLoginState(email);
   }
 }
