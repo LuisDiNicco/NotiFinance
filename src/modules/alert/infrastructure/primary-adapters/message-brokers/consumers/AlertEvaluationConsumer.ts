@@ -8,6 +8,7 @@ import {
 } from '../../../../../ingestion/application/IEventPublisher';
 import { EventPayload } from '../../../../../ingestion/domain/EventPayload';
 import { EventType } from '../../../../../ingestion/domain/enums/EventType';
+import { Alert } from '../../../../domain/entities/Alert';
 import { AlertCondition } from '../../../../domain/enums/AlertCondition';
 import { AlertType } from '../../../../domain/enums/AlertType';
 
@@ -61,6 +62,7 @@ export class AlertEvaluationConsumer {
     message: RabbitMQMessage,
     context: RmqContext,
   ): Promise<void> {
+    const startedAt = Date.now();
     const channel = context.getChannelRef() as RmqChannelRef;
     const originalMsg = context.getMessage() as unknown;
     const correlationId =
@@ -69,6 +71,7 @@ export class AlertEvaluationConsumer {
     const metadata = message.payload?.metadata ?? {};
 
     try {
+      let evaluatedCount = 0;
       let triggered = [] as Awaited<
         ReturnType<AlertEvaluationEngine['evaluateAlertsForRisk']>
       >;
@@ -77,10 +80,12 @@ export class AlertEvaluationConsumer {
         const assetId = metadata['assetId'];
         const closePrice = metadata['closePrice'];
         if (typeof assetId === 'string' && typeof closePrice === 'number') {
-          triggered = await this.evaluationEngine.evaluateAlertsForAsset(
+          const result = await this.evaluateAssetAlertsWithStats(
             assetId,
             closePrice,
           );
+          triggered = result.triggeredAlerts;
+          evaluatedCount = result.evaluatedCount;
         }
       }
 
@@ -88,19 +93,25 @@ export class AlertEvaluationConsumer {
         const currentPrice = metadata['currentPrice'];
         const dollarType = metadata['dollarType'];
         if (typeof currentPrice === 'number') {
-          triggered = await this.evaluationEngine.evaluateAlertsForDollar(
+          const result = await this.evaluateDollarAlertsWithStats(
             typeof dollarType === 'string' ? dollarType : 'ANY',
             currentPrice,
           );
+          triggered = result.triggeredAlerts;
+          evaluatedCount = result.evaluatedCount;
         }
       }
 
       if (source === 'RISK') {
         const value = metadata['value'];
         if (typeof value === 'number') {
-          triggered = await this.evaluationEngine.evaluateAlertsForRisk(value);
+          const result = await this.evaluateRiskAlertsWithStats(value);
+          triggered = result.triggeredAlerts;
+          evaluatedCount = result.evaluatedCount;
         }
       }
+
+      let publishedCount = 0;
 
       for (const alert of triggered) {
         const alertEventType = this.resolveAlertEventType(
@@ -139,16 +150,96 @@ export class AlertEvaluationConsumer {
         );
 
         await this.eventPublisher.publishEvent(event, correlationId);
+        publishedCount += 1;
       }
+
+      const durationMs = Date.now() - startedAt;
+      this.logger.log(
+        `[Trace: ${correlationId}] Alert evaluation cycle completed (source=${source}, evaluated=${evaluatedCount}, triggered=${triggered.length}, published=${publishedCount}, durationMs=${durationMs})`,
+      );
 
       channel.ack(originalMsg);
     } catch (error) {
       this.logger.error(
-        `[Trace: ${correlationId}] Alert evaluation failed`,
+        `[Trace: ${correlationId}] Alert evaluation failed after ${Date.now() - startedAt}ms`,
         error,
       );
       channel.ack(originalMsg);
     }
+  }
+
+  private async evaluateAssetAlertsWithStats(
+    assetId: string,
+    currentPrice: number,
+  ): Promise<{ evaluatedCount: number; triggeredAlerts: Alert[] }> {
+    const engine = this.evaluationEngine as AlertEvaluationEngine & {
+      evaluateAlertsForAssetWithStats?: (
+        localAssetId: string,
+        localCurrentPrice: number,
+      ) => Promise<{ evaluatedCount: number; triggeredAlerts: Alert[] }>;
+    };
+
+    if (typeof engine.evaluateAlertsForAssetWithStats === 'function') {
+      return engine.evaluateAlertsForAssetWithStats(assetId, currentPrice);
+    }
+
+    const triggeredAlerts = await this.evaluationEngine.evaluateAlertsForAsset(
+      assetId,
+      currentPrice,
+    );
+
+    return {
+      evaluatedCount: triggeredAlerts.length,
+      triggeredAlerts,
+    };
+  }
+
+  private async evaluateDollarAlertsWithStats(
+    dollarType: string,
+    currentPrice: number,
+  ): Promise<{ evaluatedCount: number; triggeredAlerts: Alert[] }> {
+    const engine = this.evaluationEngine as AlertEvaluationEngine & {
+      evaluateAlertsForDollarWithStats?: (
+        localDollarType: string,
+        localCurrentPrice: number,
+      ) => Promise<{ evaluatedCount: number; triggeredAlerts: Alert[] }>;
+    };
+
+    if (typeof engine.evaluateAlertsForDollarWithStats === 'function') {
+      return engine.evaluateAlertsForDollarWithStats(dollarType, currentPrice);
+    }
+
+    const triggeredAlerts = await this.evaluationEngine.evaluateAlertsForDollar(
+      dollarType,
+      currentPrice,
+    );
+
+    return {
+      evaluatedCount: triggeredAlerts.length,
+      triggeredAlerts,
+    };
+  }
+
+  private async evaluateRiskAlertsWithStats(
+    currentValue: number,
+  ): Promise<{ evaluatedCount: number; triggeredAlerts: Alert[] }> {
+    const engine = this.evaluationEngine as AlertEvaluationEngine & {
+      evaluateAlertsForRiskWithStats?: (
+        localCurrentValue: number,
+      ) => Promise<{ evaluatedCount: number; triggeredAlerts: Alert[] }>;
+    };
+
+    if (typeof engine.evaluateAlertsForRiskWithStats === 'function') {
+      return engine.evaluateAlertsForRiskWithStats(currentValue);
+    }
+
+    const triggeredAlerts =
+      await this.evaluationEngine.evaluateAlertsForRisk(currentValue);
+
+    return {
+      evaluatedCount: triggeredAlerts.length,
+      triggeredAlerts,
+    };
   }
 
   private resolveAlertEventType(
