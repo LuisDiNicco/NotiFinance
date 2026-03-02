@@ -21,6 +21,9 @@ describe('IngestionController (e2e)', () => {
       idempotencyCache.add(key);
       return true;
     }),
+    delete: jest.fn().mockImplementation(async (key: string) => {
+      idempotencyCache.delete(key);
+    }),
   } as unknown as RedisService;
   const ingestionApiKey = 'test-ingestion-key';
   const previousIngestionApiKey = process.env['EVENTS_INGESTION_API_KEY'];

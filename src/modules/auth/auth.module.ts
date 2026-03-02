@@ -32,6 +32,11 @@ import { MarketDataModule } from '../market-data/market-data.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
+        const jwtSecret = configService.get<string>('auth.jwtSecret');
+        if (!jwtSecret) {
+          throw new Error('auth.jwtSecret is not configured');
+        }
+
         const expiresInRaw = configService.get<string>(
           'auth.jwtExpiresIn',
           '15m',
@@ -52,7 +57,7 @@ import { MarketDataModule } from '../market-data/market-data.module';
                 : amount * 86400;
 
         return {
-          secret: configService.get<string>('auth.jwtSecret', 'secret'),
+          secret: jwtSecret,
           signOptions: {
             expiresIn: expiresInSeconds,
           },

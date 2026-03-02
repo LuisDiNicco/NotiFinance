@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
+import { ConfigService } from '@nestjs/config';
 import { TemplateController } from '../src/modules/template/infrastructure/primary-adapters/http/controllers/TemplateController';
 import { TemplateCompilerService } from '../src/modules/template/application/TemplateCompilerService';
 import { TEMPLATE_REPO } from '../src/modules/template/application/ITemplateRepository';
@@ -30,12 +31,23 @@ const templateRepoMock = {
 
 describe('Templates endpoint (e2e)', () => {
   let app: INestApplication;
+  const templateAdminApiKey = 'test-template-admin-key';
+  const previousTemplateAdminApiKey = process.env['TEMPLATE_ADMIN_API_KEY'];
 
   beforeAll(async () => {
+    process.env['TEMPLATE_ADMIN_API_KEY'] = templateAdminApiKey;
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [TemplateController],
       providers: [
         TemplateCompilerService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string, defaultValue?: string) =>
+              process.env[key] ?? defaultValue,
+          },
+        },
         {
           provide: TEMPLATE_REPO,
           useValue: templateRepoMock,
@@ -57,6 +69,13 @@ describe('Templates endpoint (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+
+    if (previousTemplateAdminApiKey == null) {
+      delete process.env['TEMPLATE_ADMIN_API_KEY'];
+      return;
+    }
+
+    process.env['TEMPLATE_ADMIN_API_KEY'] = previousTemplateAdminApiKey;
   });
 
   it('/api/v1/templates (GET) returns paginated shape', async () => {
@@ -75,6 +94,7 @@ describe('Templates endpoint (e2e)', () => {
   it('/api/v1/templates (POST) stores template', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/templates')
+      .set('x-template-admin-key', templateAdminApiKey)
       .send({
         name: 'Price Alert Template',
         eventType: 'alert.price.above',
@@ -89,6 +109,7 @@ describe('Templates endpoint (e2e)', () => {
   it('/api/v1/templates/test-compile (POST) compiles context variables', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/templates/test-compile')
+      .set('x-template-admin-key', templateAdminApiKey)
       .send({
         eventType: 'alert.price.above',
         context: {

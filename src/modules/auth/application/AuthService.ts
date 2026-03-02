@@ -106,8 +106,11 @@ export class AuthService {
   public async refreshToken(token: string): Promise<AuthTokens> {
     const refreshSecret = this.configService.get<string>(
       'auth.jwtRefreshSecret',
-      'refresh-secret',
     );
+    if (!refreshSecret) {
+      throw new Error('auth.jwtRefreshSecret is not configured');
+    }
+
     const payload = await this.jwtService.verifyAsync<TokenPayload>(token, {
       secret: refreshSecret,
     });
@@ -156,8 +159,11 @@ export class AuthService {
 
     const refreshSecret = this.configService.get<string>(
       'auth.jwtRefreshSecret',
-      'refresh-secret',
     );
+    if (!refreshSecret) {
+      throw new Error('auth.jwtRefreshSecret is not configured');
+    }
+
     const refreshExpiresIn = this.configService.get<string>(
       'auth.jwtRefreshExpiresIn',
       '7d',

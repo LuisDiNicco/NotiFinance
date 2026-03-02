@@ -6,6 +6,7 @@ import {
   Post,
   Req,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
   UseInterceptors,
 } from '@nestjs/common';
@@ -49,9 +50,7 @@ export class EventIngestionController {
     @Body() payload: EventPayloadRequest,
     @Req() request: Request,
   ): Promise<{ message: string; eventId: string }> {
-    if (!this.isValidIngestionApiKey(request)) {
-      throw new UnauthorizedException('Invalid ingestion API key');
-    }
+    this.assertIngestionApiAccess(request);
 
     const correlationId =
       (request.headers['x-correlation-id'] as string) ||
@@ -70,13 +69,15 @@ export class EventIngestionController {
     };
   }
 
-  private isValidIngestionApiKey(request: Request): boolean {
+  private assertIngestionApiAccess(request: Request): void {
     const ingestionApiKey = this.configService
       .get<string>('EVENTS_INGESTION_API_KEY', '')
       .trim();
 
     if (!ingestionApiKey) {
-      return true;
+      throw new ServiceUnavailableException(
+        'Ingestion API key is not configured',
+      );
     }
 
     const headerValue = request.headers['x-ingestion-api-key'];
@@ -84,16 +85,18 @@ export class EventIngestionController {
       typeof headerValue === 'string' ? headerValue.trim() : '';
 
     if (!providedApiKey) {
-      return false;
+      throw new UnauthorizedException('Invalid ingestion API key');
     }
 
     const expectedBuffer = Buffer.from(ingestionApiKey);
     const providedBuffer = Buffer.from(providedApiKey);
 
     if (expectedBuffer.length !== providedBuffer.length) {
-      return false;
+      throw new UnauthorizedException('Invalid ingestion API key');
     }
 
-    return timingSafeEqual(expectedBuffer, providedBuffer);
+    if (!timingSafeEqual(expectedBuffer, providedBuffer)) {
+      throw new UnauthorizedException('Invalid ingestion API key');
+    }
   }
 }

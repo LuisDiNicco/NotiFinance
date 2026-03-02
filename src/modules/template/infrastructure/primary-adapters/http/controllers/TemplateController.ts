@@ -7,10 +7,12 @@ import {
   HttpCode,
   HttpStatus,
   Headers,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { TemplateCompilerService } from '../../../../application/TemplateCompilerService';
 import { TemplateRequest } from './request/TemplateRequest';
 import { NotificationTemplateResponse } from '../responses/NotificationTemplateResponse';
@@ -21,7 +23,10 @@ import { PaginatedTemplateResponse } from '../responses/PaginatedTemplateRespons
 @ApiTags('Templates')
 @Controller('templates')
 export class TemplateController {
-  constructor(private readonly templateService: TemplateCompilerService) {}
+  constructor(
+    private readonly templateService: TemplateCompilerService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List templates using paginated response format' })
@@ -89,10 +94,14 @@ export class TemplateController {
   }
 
   private assertTemplateAdminAccess(providedApiKey?: string): void {
-    const expectedApiKey = (process.env['TEMPLATE_ADMIN_API_KEY'] ?? '').trim();
+    const expectedApiKey = this.configService
+      .get<string>('TEMPLATE_ADMIN_API_KEY', '')
+      .trim();
 
     if (!expectedApiKey) {
-      return;
+      throw new ServiceUnavailableException(
+        'Template admin API key is not configured',
+      );
     }
 
     const candidate = (providedApiKey ?? '').trim();

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Headers,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
@@ -63,7 +64,9 @@ export class ProviderHealthController {
       .trim();
 
     if (!expectedApiKey) {
-      return;
+      throw new ServiceUnavailableException(
+        'Monitoring API key is not configured',
+      );
     }
 
     const candidate = (providedApiKey ?? '').trim();

@@ -22,6 +22,7 @@ const assets = [
 
 describe('Market data endpoints (e2e)', () => {
   let app: INestApplication;
+  const monitoringApiKey = 'test-monitoring-key';
 
   const marketDataServiceMock = {
     getDollarQuotes: jest
@@ -192,7 +193,13 @@ describe('Market data endpoints (e2e)', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn((_: string, defaultValue?: string) => defaultValue),
+            get: jest.fn((key: string, defaultValue?: string) => {
+              if (key === 'MONITORING_API_KEY') {
+                return monitoringApiKey;
+              }
+
+              return defaultValue;
+            }),
           },
         },
       ],
@@ -292,6 +299,7 @@ describe('Market data endpoints (e2e)', () => {
   it('/api/v1/health/providers (GET)', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/health/providers')
+      .set('x-monitoring-api-key', monitoringApiKey)
       .expect(200);
 
     expect(response.body).toHaveProperty('updatedAt');

@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
+import { ConfigService } from '@nestjs/config';
 import { TemplateController } from '../src/modules/template/infrastructure/primary-adapters/http/controllers/TemplateController';
 import { TemplateCompilerService } from '../src/modules/template/application/TemplateCompilerService';
 import { TEMPLATE_REPO } from '../src/modules/template/application/ITemplateRepository';
@@ -39,6 +40,13 @@ describe('Template security (e2e)', () => {
       controllers: [TemplateController],
       providers: [
         TemplateCompilerService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string, defaultValue?: string) =>
+              process.env[key] ?? defaultValue,
+          },
+        },
         {
           provide: TEMPLATE_REPO,
           useValue: templateRepoMock,
