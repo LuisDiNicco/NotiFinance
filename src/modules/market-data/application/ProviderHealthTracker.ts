@@ -19,6 +19,7 @@ export class ProviderHealthTracker {
     'api.bcra.gob.ar',
     'mercados.ambito.com',
     'data912.com',
+    'rava.com',
     'yahoo-finance',
     'alphavantage.co',
   ];

@@ -9,6 +9,11 @@ export default registerAs('market', () => ({
   bluelyticsUrl:
     process.env['BLUELYTICS_API_URL'] || 'https://api.bluelytics.com.ar/v2',
   criptoYaUrl: process.env['CRIPTOYA_API_URL'] || 'https://criptoya.com/api',
+  ravaBaseUrl: process.env['RAVA_BASE_URL'] || 'https://www.rava.com',
+  scrapingRateLimitMs: Number(process.env['SCRAPING_RATE_LIMIT_MS'] || 10000),
+  scrapingUserAgent:
+    process.env['SCRAPING_USER_AGENT'] ||
+    'NotiFinance/2.0 (educational project)',
   dollarCrossValidationThresholdPercent: Number(
     process.env['DOLLAR_CROSS_VALIDATION_THRESHOLD_PERCENT'] || 2,
   ),
