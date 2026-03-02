@@ -46,6 +46,7 @@ import { CountryRisk } from '../../../../../src/modules/market-data/domain/entit
 import { AssetNotFoundError } from '../../../../../src/modules/market-data/domain/errors/AssetNotFoundError';
 import { MarketDataUnavailableError } from '../../../../../src/modules/market-data/domain/errors/MarketDataUnavailableError';
 import { MarketQuote } from '../../../../../src/modules/market-data/domain/entities/MarketQuote';
+import { ProviderOrchestrator } from '../../../../../src/modules/market-data/application/ProviderOrchestrator';
 
 describe('MarketDataService', () => {
   let service: MarketDataService;
@@ -349,7 +350,7 @@ describe('MarketDataService', () => {
     expect(quoteRepository.saveBulkQuotes).toHaveBeenCalledTimes(1);
   });
 
-  it('returns provider historical quotes as-is when asset has no id', async () => {
+  it('returns provider historical quotes enriched when asset has no id', async () => {
     const asset = new Asset(
       'GGAL',
       'Galicia',
@@ -368,7 +369,11 @@ describe('MarketDataService', () => {
 
     const result = await service.getAssetQuotes('GGAL', 10);
 
-    expect(result).toEqual(historical);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.source).toBe('historical-provider');
+    expect(result[0]?.sourceTimestamp?.toISOString()).toBe(
+      '2024-01-01T00:00:00.000Z',
+    );
     expect(quoteRepository.saveBulkQuotes).not.toHaveBeenCalled();
   });
 
@@ -393,7 +398,11 @@ describe('MarketDataService', () => {
 
     const result = await service.getAssetQuotes('GGAL', 15);
 
-    expect(result).toEqual(persisted);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.source).toBe('persisted-market-quotes');
+    expect(result[0]?.sourceTimestamp?.toISOString()).toBe(
+      '2024-01-01T00:00:00.000Z',
+    );
   });
 
   it('throws MarketDataUnavailableError when provider fails and persisted historical quotes are empty', async () => {
@@ -952,6 +961,55 @@ describe('MarketDataService', () => {
     expect(eventPublisher.publishEvent).toHaveBeenCalledTimes(11);
   });
 
+  it('uses provider orchestrator when available for stock refresh', async () => {
+    const localProviderOrchestrator = {
+      fetchQuote: jest.fn().mockResolvedValue({
+        quote: new MarketQuote(new Date(), { closePrice: 1000 }),
+        source: 'data912.com',
+        confidence: 'HIGH',
+        timestamp: new Date(),
+      }),
+    } as unknown as ProviderOrchestrator;
+
+    const localModule = await Test.createTestingModule({
+      providers: [
+        MarketDataService,
+        { provide: ConfigService, useValue: configService },
+        { provide: MARKET_CACHE, useValue: marketCache },
+        { provide: ASSET_REPOSITORY, useValue: assetRepository },
+        { provide: DOLLAR_PROVIDER, useValue: dollarProvider },
+        { provide: RISK_PROVIDER, useValue: riskProvider },
+        { provide: DOLLAR_QUOTE_REPOSITORY, useValue: dollarQuoteRepository },
+        { provide: COUNTRY_RISK_REPOSITORY, useValue: countryRiskRepository },
+        { provide: QUOTE_PROVIDER, useValue: quoteProvider },
+        { provide: QUOTE_FALLBACK_PROVIDER, useValue: fallbackQuoteProvider },
+        { provide: QUOTE_REPOSITORY, useValue: quoteRepository },
+        { provide: ProviderOrchestrator, useValue: localProviderOrchestrator },
+        { provide: EVENT_PUBLISHER, useValue: eventPublisher },
+      ],
+    }).compile();
+
+    const localService = localModule.get<MarketDataService>(MarketDataService);
+    const asset = new Asset(
+      'GGAL',
+      'Galicia',
+      AssetType.STOCK,
+      'Fin',
+      'GGAL.BA',
+    );
+    asset.id = 'asset-1';
+
+    assetRepository.findAll.mockResolvedValue([asset]);
+
+    await localService.refreshStockQuotes();
+
+    expect(localProviderOrchestrator.fetchQuote).toHaveBeenCalledWith(
+      AssetType.STOCK,
+      'GGAL.BA',
+    );
+    expect(quoteProvider.fetchQuote).not.toHaveBeenCalled();
+  });
+
   it('returns zero updated quotes when fallback provider is not configured', async () => {
     const localModule = await Test.createTestingModule({
       providers: [
@@ -986,5 +1044,82 @@ describe('MarketDataService', () => {
 
     expect(updated.updatedCount).toBe(0);
     expect(updated.updates).toHaveLength(0);
+  });
+
+  it('returns bond fixed-income details for supported bond tickers', async () => {
+    const asset = new Asset(
+      'AL30',
+      'Bonares 2030',
+      AssetType.BOND,
+      'Renta Fija',
+      'AL30.BA',
+    );
+    asset.id = 'asset-bond-1';
+
+    assetRepository.findByTicker.mockResolvedValue(asset);
+    quoteRepository.findLatestByAsset.mockResolvedValue(
+      new MarketQuote(new Date('2026-01-02T00:00:00.000Z'), {
+        assetId: asset.id,
+        closePrice: 62,
+      }),
+    );
+
+    const detail = await service.getAssetDetailByTicker('AL30');
+
+    expect(detail.ticker).toBe('AL30');
+    expect(detail.fixedIncome).not.toBeNull();
+    expect(detail.fixedIncome?.instrumentType).toBe('BOND');
+    expect(detail.fixedIncome?.couponCalendar?.length).toBeGreaterThan(0);
+    expect(typeof detail.fixedIncome?.ytm).toBe('number');
+  });
+
+  it('returns zero-coupon fixed-income details for lecap and boncap', async () => {
+    const asset = new Asset(
+      'S30J7',
+      'LECAP Jul-2027',
+      AssetType.LECAP,
+      'Renta Fija',
+      'S30J7.BA',
+    );
+    asset.id = 'asset-lecap-1';
+    asset.maturityDate = new Date('2027-07-30T00:00:00.000Z');
+
+    assetRepository.findByTicker.mockResolvedValue(asset);
+    quoteRepository.findLatestByAsset.mockResolvedValue(
+      new MarketQuote(new Date('2026-01-02T00:00:00.000Z'), {
+        assetId: asset.id,
+        closePrice: 85,
+      }),
+    );
+
+    const detail = await service.getAssetDetailByTicker('S30J7');
+
+    expect(detail.fixedIncome).not.toBeNull();
+    expect(detail.fixedIncome?.instrumentType).toBe('LECAP');
+    expect(typeof detail.fixedIncome?.tna).toBe('number');
+    expect(typeof detail.fixedIncome?.tea).toBe('number');
+  });
+
+  it('returns null fixed-income details for non fixed-income assets', async () => {
+    const asset = new Asset(
+      'GGAL',
+      'Galicia',
+      AssetType.STOCK,
+      'Financiero',
+      'GGAL.BA',
+    );
+    asset.id = 'asset-stock-1';
+
+    assetRepository.findByTicker.mockResolvedValue(asset);
+    quoteRepository.findLatestByAsset.mockResolvedValue(
+      new MarketQuote(new Date('2026-01-02T00:00:00.000Z'), {
+        assetId: asset.id,
+        closePrice: 1200,
+      }),
+    );
+
+    const detail = await service.getAssetDetailByTicker('GGAL');
+
+    expect(detail.fixedIncome).toBeNull();
   });
 });

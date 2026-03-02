@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { mockWatchlist } from "@/services/mockMarketData";
 import { WatchlistItem } from "@/types/market";
 import { useAddWatchlistItem, useRemoveWatchlistItem, useWatchlist } from "@/hooks/useWatchlist";
 import { formatCurrency, formatPercent } from "@/lib/format";
@@ -23,7 +22,6 @@ import Link from "next/link";
 import { useSocket } from "@/hooks/useSocket";
 
 export default function WatchlistPage() {
-  const [fallbackItems, setFallbackItems] = useState<WatchlistItem[]>(mockWatchlist);
   const [searchTerm, setSearchTerm] = useState("");
   const [newTicker, setNewTicker] = useState("");
   const { marketSocket } = useSocket();
@@ -31,11 +29,10 @@ export default function WatchlistPage() {
   const addWatchlistItemMutation = useAddWatchlistItem();
   const removeWatchlistItemMutation = useRemoveWatchlistItem();
 
-  const usingFallback = watchlistQuery.isError;
   const [livePrices, setLivePrices] = useState<Record<string, { price: number; variation: number }>>({});
 
   const items = useMemo(() => {
-    const base = usingFallback ? fallbackItems : (watchlistQuery.data ?? []);
+    const base = watchlistQuery.data ?? [];
 
     return base.map((item) => {
       const liveData = livePrices[item.symbol];
@@ -43,7 +40,7 @@ export default function WatchlistPage() {
         ? { ...item, price: liveData.price, variation: liveData.variation }
         : item;
     });
-  }, [fallbackItems, livePrices, usingFallback, watchlistQuery.data]);
+  }, [livePrices, watchlistQuery.data]);
 
   useEffect(() => {
     const handleQuote = (payload: { ticker: string; priceArs: number; changePct: number }) => {
@@ -63,12 +60,6 @@ export default function WatchlistPage() {
   }, [marketSocket]);
 
   const handleRemove = async (item: WatchlistItem) => {
-    if (usingFallback) {
-      setFallbackItems((prev) => prev.filter((entry) => entry.id !== item.id));
-      toast.success("Activo eliminado de favoritos");
-      return;
-    }
-
     try {
       await removeWatchlistItemMutation.mutateAsync(item.symbol);
       toast.success("Activo eliminado de favoritos");
@@ -80,29 +71,6 @@ export default function WatchlistPage() {
   const handleAddTicker = async () => {
     const ticker = newTicker.trim().toUpperCase();
     if (!ticker) {
-      return;
-    }
-
-    if (usingFallback) {
-      const exists = fallbackItems.some((item) => item.symbol === ticker);
-      if (exists) {
-        toast.error("Ese activo ya está en tu watchlist");
-        return;
-      }
-
-      setFallbackItems((prev) => [
-        {
-          id: `local-${ticker}`,
-          symbol: ticker,
-          name: ticker,
-          type: "STOCK",
-          price: 0,
-          variation: 0,
-        },
-        ...prev,
-      ]);
-      setNewTicker("");
-      toast.success("Activo agregado a favoritos");
       return;
     }
 
@@ -164,9 +132,15 @@ export default function WatchlistPage() {
       </div>
 
       <div className="rounded-md border bg-card">
-        {watchlistQuery.isLoading && !usingFallback ? (
+        {watchlistQuery.isLoading ? (
           <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
             Cargando watchlist...
+          </div>
+        ) : null}
+
+        {watchlistQuery.isError ? (
+          <div className="px-4 py-3 text-sm text-destructive border-b">
+            No se pudo cargar la watchlist con datos confiables. Reintentá en unos segundos.
           </div>
         ) : null}
 

@@ -34,6 +34,7 @@
   },
   "exclude": [
     "node_modules",
+    "notifinance-frontend",
     "noticore-client",
     "noticore-admin",
     "dist"

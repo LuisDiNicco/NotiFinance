@@ -2,8 +2,8 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
-  NestInterceptor,
   Logger,
+  NestInterceptor,
 } from '@nestjs/common';
 import { Observable, of } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -31,7 +31,6 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const eventId = request.body?.eventId;
 
     if (!eventId) {
-      // Let validation pipe catch the missing eventId later
       return next.handle();
     }
 
@@ -46,7 +45,6 @@ export class IdempotencyInterceptor implements NestInterceptor {
       this.logger.log(
         `Duplicate event detected via idempotency key: ${eventId}. Skipping processing.`,
       );
-      // Return 200 OK immediately for duplicate webhook
       httpContext.getResponse<{ status(code: number): unknown }>().status(200);
       return of({
         message: 'Event already processed or processing',
@@ -57,12 +55,30 @@ export class IdempotencyInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap({
         error: (err: unknown) => {
-          // If something fails significantly before RabbitMQ, we could
-          // consider deleting the key so it can be retried.
-          // For now, let's keep it to strictly avoid duplicate firing
-          this.logger.error(
-            `Error during intercepted request for eventId ${eventId}`,
-            err,
+          void this.redisService
+            .delete(cacheKey)
+            .catch((deleteError: unknown) => {
+              this.logger.error(
+                `Failed to release idempotency key after error for eventId ${eventId}`,
+                deleteError,
+              );
+            });
+
+          const statusCode =
+            typeof (err as { status?: unknown })?.status === 'number'
+              ? (err as { status: number }).status
+              : 500;
+
+          if (statusCode >= 500) {
+            this.logger.error(
+              `Error during intercepted request for eventId ${eventId}`,
+              err,
+            );
+            return;
+          }
+
+          this.logger.warn(
+            `Request failed (${statusCode}) for eventId ${eventId}. Idempotency key released for retry.`,
           );
         },
       }),

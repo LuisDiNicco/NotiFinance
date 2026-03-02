@@ -66,7 +66,7 @@ export function PortfolioDetailClient({ portfolioId }: PortfolioDetailClientProp
       acc[holding.type] = (acc[holding.type] ?? 0) + holding.weight;
       return acc;
     }, {});
-  }, [distributionQuery.data, holdings, usingFallback]);
+  }, [distributionQuery.data, holdings]);
 
   if (hasError) {
     return (

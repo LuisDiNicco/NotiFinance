@@ -7,6 +7,9 @@ export class Asset {
   public readonly assetType: AssetType;
   public readonly sector: string;
   public readonly yahooTicker: string;
+  public maturityDate?: Date | null;
+  public isActive?: boolean;
+  public lastCatalogCheck?: Date | null;
 
   constructor(
     ticker: string,

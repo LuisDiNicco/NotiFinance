@@ -1,4 +1,11 @@
-import { IsEnum, IsObject, IsString, IsUUID } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsObject,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { EventPayload } from '../../../../../domain/EventPayload';
 import { EventType } from '../../../../../domain/enums/EventType';
@@ -24,6 +31,8 @@ export class EventPayloadRequest {
     example: 'user-123',
   })
   @IsString({ message: 'recipientId must be a valid string' })
+  @IsNotEmpty({ message: 'recipientId must not be empty' })
+  @MaxLength(128, { message: 'recipientId must have at most 128 characters' })
   recipientId!: string;
 
   @ApiProperty({

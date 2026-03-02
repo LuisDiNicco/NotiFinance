@@ -8,6 +8,18 @@ interface Lot {
   unitCost: number;
 }
 
+interface PreliminaryHolding {
+  assetId: string;
+  ticker: string;
+  quantity: number;
+  avgCostBasis: number;
+  currentPrice: number;
+  marketValue: number;
+  costBasis: number;
+  unrealizedPnl: number;
+  unrealizedPnlPct: number;
+}
+
 @Injectable()
 export class HoldingsCalculator {
   public calculateHoldings(
@@ -49,8 +61,7 @@ export class HoldingsCalculator {
       lotsByAsset.set(trade.assetId, lots);
     }
 
-    const preliminary: Array<Omit<Holding, 'weight'> & { weight?: number }> =
-      [];
+    const preliminary: PreliminaryHolding[] = [];
     let totalMarketValue = 0;
 
     for (const [assetId, lots] of lotsByAsset.entries()) {

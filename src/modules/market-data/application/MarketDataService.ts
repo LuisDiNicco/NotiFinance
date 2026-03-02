@@ -31,7 +31,11 @@ import { MarketQuote } from '../domain/entities/MarketQuote';
 import { AssetType } from '../domain/enums/AssetType';
 import { DollarType } from '../domain/enums/DollarType';
 import { AssetNotFoundError } from '../domain/errors/AssetNotFoundError';
+import { MarketDataUnavailableError } from '../domain/errors/MarketDataUnavailableError';
 import { MARKET_CACHE, type IMarketCache } from './IMarketCache';
+import { ProviderOrchestrator } from './ProviderOrchestrator';
+import { calculateTNATEA, calculateYTM } from './FixedIncomeCalculator';
+import { BOND_REFERENCE_DATA } from './FixedIncomeReferenceData';
 
 export interface MarketQuoteUpdate {
   ticker: string;
@@ -39,7 +43,27 @@ export interface MarketQuoteUpdate {
   changePct: number;
   volume: number;
   timestamp: string;
+  source?: string;
+  sourceTimestamp?: string;
+  confidence?: string;
 }
+
+export interface FixedIncomeDetails {
+  instrumentType: 'BOND' | 'LECAP' | 'BONCAP';
+  faceValue: number;
+  marketPrice: number;
+  maturityDate: string;
+  ytm?: number;
+  tna?: number;
+  tea?: number;
+  couponRate?: number;
+  couponFrequencyPerYear?: number;
+  couponCalendar?: string[];
+}
+
+export type AssetDetail = Asset & {
+  fixedIncome: FixedIncomeDetails | null;
+};
 
 @Injectable()
 export class MarketDataService {
@@ -71,6 +95,9 @@ export class MarketDataService {
     private readonly fallbackQuoteProvider: IQuoteProvider | null,
     @Inject(QUOTE_REPOSITORY)
     private readonly quoteRepository: IQuoteRepository,
+    @Optional()
+    @Inject(ProviderOrchestrator)
+    private readonly providerOrchestrator: ProviderOrchestrator | null,
     @Inject(EVENT_PUBLISHER)
     private readonly eventPublisher: IEventPublisher,
   ) {
@@ -101,7 +128,7 @@ export class MarketDataService {
       const quotes = await this.dollarProvider.fetchAllDollarQuotes();
       await this.dollarQuoteRepository.saveMany(quotes);
       return quotes;
-    } catch (error) {
+    } catch {
       this.logger.warn(
         'Dollar provider failed, trying persisted data fallback',
       );
@@ -112,7 +139,7 @@ export class MarketDataService {
         return persistedQuotes;
       }
 
-      throw error;
+      throw new MarketDataUnavailableError('DOLLAR');
     }
   }
 
@@ -121,7 +148,7 @@ export class MarketDataService {
       const risk = await this.riskProvider.fetchCountryRisk();
       await this.countryRiskRepository.save(risk);
       return risk;
-    } catch (error) {
+    } catch {
       this.logger.warn('Risk provider failed, trying persisted data fallback');
       const persistedRisk = await this.countryRiskRepository.findLatest();
 
@@ -129,7 +156,7 @@ export class MarketDataService {
         return persistedRisk;
       }
 
-      throw error;
+      throw new MarketDataUnavailableError('COUNTRY_RISK');
     }
   }
 
@@ -144,7 +171,14 @@ export class MarketDataService {
     return this.countryRiskRepository.findHistory(days);
   }
 
-  public async getAssets(type?: AssetType): Promise<Asset[]> {
+  public async getAssets(
+    type?: AssetType,
+    includeInactive = false,
+  ): Promise<Asset[]> {
+    if (includeInactive) {
+      return this.assetRepository.findAll(type, true);
+    }
+
     return this.assetRepository.findAll(type);
   }
 
@@ -152,6 +186,7 @@ export class MarketDataService {
     type?: AssetType;
     page: number;
     limit: number;
+    includeInactive?: boolean;
   }): Promise<{ data: Asset[]; total: number }> {
     return this.assetRepository.findPaginated(params);
   }
@@ -166,8 +201,145 @@ export class MarketDataService {
     return asset;
   }
 
+  public async getAssetDetailByTicker(ticker: string): Promise<AssetDetail> {
+    const asset = await this.getAssetByTicker(ticker);
+
+    if (!asset.id) {
+      return {
+        ...asset,
+        fixedIncome: null,
+      };
+    }
+
+    const latestQuote = await this.quoteRepository.findLatestByAsset(asset.id);
+    const fixedIncome = this.buildFixedIncomeDetails(asset, latestQuote);
+
+    return {
+      ...asset,
+      fixedIncome,
+    };
+  }
+
   public async searchAssets(query: string, limit = 10): Promise<Asset[]> {
     return this.assetRepository.search(query, limit);
+  }
+
+  private buildFixedIncomeDetails(
+    asset: Asset,
+    latestQuote: MarketQuote | null,
+  ): FixedIncomeDetails | null {
+    const normalizedTicker = asset.ticker.trim().toUpperCase();
+
+    if (
+      asset.assetType !== AssetType.BOND &&
+      asset.assetType !== AssetType.LECAP &&
+      asset.assetType !== AssetType.BONCAP
+    ) {
+      return null;
+    }
+
+    const marketPrice = this.pickMarketPrice(latestQuote);
+    if (marketPrice == null) {
+      return null;
+    }
+
+    if (asset.assetType === AssetType.BOND) {
+      const reference = BOND_REFERENCE_DATA[normalizedTicker];
+      if (!reference) {
+        return null;
+      }
+
+      const maturityDate = new Date(reference.maturityDate);
+      const ytm = calculateYTM({
+        price: marketPrice,
+        couponRate: reference.couponRate,
+        faceValue: reference.faceValue,
+        maturityDate,
+        frequency: reference.couponFrequencyPerYear,
+      });
+
+      const normalizedYtm = ytm == null ? null : this.roundTo(ytm, 6);
+
+      return {
+        instrumentType: 'BOND',
+        faceValue: reference.faceValue,
+        marketPrice: this.roundTo(marketPrice, 6),
+        maturityDate: reference.maturityDate,
+        couponRate: reference.couponRate,
+        couponFrequencyPerYear: reference.couponFrequencyPerYear,
+        couponCalendar: reference.couponCalendar,
+        ...(normalizedYtm == null ? {} : { ytm: normalizedYtm }),
+      };
+    }
+
+    const maturityDate = this.resolveMaturityDate(asset, normalizedTicker);
+    if (!maturityDate) {
+      return null;
+    }
+
+    const tnaTea = calculateTNATEA({
+      price: marketPrice,
+      faceValue: 100,
+      maturityDate,
+    });
+
+    const normalizedTna = tnaTea == null ? null : this.roundTo(tnaTea.tna, 6);
+    const normalizedTea = tnaTea == null ? null : this.roundTo(tnaTea.tea, 6);
+
+    return {
+      instrumentType: asset.assetType === AssetType.LECAP ? 'LECAP' : 'BONCAP',
+      faceValue: 100,
+      marketPrice: this.roundTo(marketPrice, 6),
+      maturityDate: maturityDate.toISOString().slice(0, 10),
+      ...(normalizedTna == null ? {} : { tna: normalizedTna }),
+      ...(normalizedTea == null ? {} : { tea: normalizedTea }),
+    };
+  }
+
+  private resolveMaturityDate(asset: Asset, ticker: string): Date | null {
+    if (
+      asset.maturityDate instanceof Date &&
+      !Number.isNaN(asset.maturityDate.getTime())
+    ) {
+      return asset.maturityDate;
+    }
+
+    const reference = BOND_REFERENCE_DATA[ticker];
+    if (!reference) {
+      return null;
+    }
+
+    const parsed = new Date(reference.maturityDate);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  private pickMarketPrice(quote: MarketQuote | null): number | null {
+    if (!quote) {
+      return null;
+    }
+
+    if (typeof quote.closePrice === 'number') {
+      return quote.closePrice;
+    }
+
+    if (typeof quote.priceArs === 'number') {
+      return quote.priceArs;
+    }
+
+    if (typeof quote.priceUsd === 'number') {
+      return quote.priceUsd;
+    }
+
+    return null;
+  }
+
+  private roundTo(value: number, decimals: number): number {
+    const factor = 10 ** decimals;
+    return Math.round(value * factor) / factor;
   }
 
   public async getAssetQuotes(
@@ -187,21 +359,26 @@ export class MarketDataService {
       );
 
       if (!asset.id) {
-        return quotes;
+        return quotes.map((quote) =>
+          this.ensureQuoteEnrichment(quote, 'historical-provider'),
+        );
       }
 
       const quotesWithAsset = quotes.map((quote) =>
-        quote.withAssetId(asset.id!),
+        this.ensureQuoteEnrichment(
+          quote.withAssetId(asset.id!),
+          'historical-provider',
+        ),
       );
       await this.quoteRepository.saveBulkQuotes(quotesWithAsset);
       return quotesWithAsset;
-    } catch (error) {
+    } catch {
       this.logger.warn(
         `Quote provider failed for ${asset.ticker}, trying persisted data fallback`,
       );
 
       if (!asset.id) {
-        throw error;
+        throw new MarketDataUnavailableError(asset.ticker);
       }
 
       const persistedQuotes = await this.quoteRepository.findByAssetAndPeriod(
@@ -211,11 +388,53 @@ export class MarketDataService {
       );
 
       if (persistedQuotes.length > 0) {
-        return persistedQuotes;
+        return persistedQuotes.map((quote) =>
+          this.ensureQuoteEnrichment(quote, 'persisted-market-quotes'),
+        );
       }
 
-      throw error;
+      throw new MarketDataUnavailableError(asset.ticker);
     }
+  }
+
+  public async getLatestPersistedAssetQuote(
+    ticker: string,
+  ): Promise<MarketQuote | null> {
+    const asset = await this.getAssetByTicker(ticker);
+
+    if (!asset.id) {
+      return null;
+    }
+
+    return this.quoteRepository.findLatestByAsset(asset.id);
+  }
+
+  public async getPersistedAssetQuotesByPeriod(
+    ticker: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<MarketQuote[]> {
+    const asset = await this.getAssetByTicker(ticker);
+
+    if (!asset.id) {
+      return [];
+    }
+
+    return this.quoteRepository.findByAssetAndPeriod(
+      asset.id,
+      startDate,
+      endDate,
+    );
+  }
+
+  private ensureQuoteEnrichment(
+    quote: MarketQuote,
+    fallbackSource: string,
+  ): MarketQuote {
+    return quote.withEnrichment({
+      source: quote.source ?? fallbackSource,
+      sourceTimestamp: quote.sourceTimestamp ?? quote.date,
+    });
   }
 
   public async getAssetStats(
@@ -468,9 +687,9 @@ export class MarketDataService {
         risk: '*/10 * * * *',
       },
       lastUpdate: {
-        dollar: latestDollar ? latestDollar.toISOString() : null,
-        risk: latestRisk ? latestRisk.toISOString() : null,
-        quotes: latestQuote ? latestQuote.toISOString() : null,
+        dollar: this.toIsoStringOrNull(latestDollar),
+        risk: this.toIsoStringOrNull(latestRisk),
+        quotes: this.toIsoStringOrNull(latestQuote),
       },
     };
 
@@ -570,7 +789,10 @@ export class MarketDataService {
       const chunkResults = await Promise.all(
         chunk.map(async (asset) => {
           try {
-            const quote = await this.fetchQuoteWithRetry(asset.yahooTicker);
+            const quote = await this.fetchQuoteWithRetry(
+              asset.assetType,
+              asset.yahooTicker,
+            );
             const quoteWithAsset = quote.withAssetId(asset.id!);
             await this.quoteRepository.saveBulkQuotes([quoteWithAsset]);
 
@@ -582,6 +804,9 @@ export class MarketDataService {
               closePrice: quoteWithAsset.closePrice,
               changePct: quoteWithAsset.changePct,
               date: quoteWithAsset.date.toISOString(),
+              source: quoteWithAsset.source,
+              sourceTimestamp: quoteWithAsset.sourceTimestamp?.toISOString(),
+              confidence: quoteWithAsset.confidence,
             });
 
             updates.push({
@@ -591,6 +816,18 @@ export class MarketDataService {
               changePct: quoteWithAsset.changePct ?? 0,
               volume: quoteWithAsset.volume ?? 0,
               timestamp: quoteWithAsset.date.toISOString(),
+              ...(quoteWithAsset.source
+                ? { source: quoteWithAsset.source }
+                : {}),
+              ...(quoteWithAsset.sourceTimestamp
+                ? {
+                    sourceTimestamp:
+                      quoteWithAsset.sourceTimestamp.toISOString(),
+                  }
+                : {}),
+              ...(quoteWithAsset.confidence
+                ? { confidence: quoteWithAsset.confidence }
+                : {}),
             });
 
             return 1;
@@ -616,12 +853,32 @@ export class MarketDataService {
     };
   }
 
-  private async fetchQuoteWithRetry(yahooTicker: string): Promise<MarketQuote> {
+  private async fetchQuoteWithRetry(
+    assetType: AssetType,
+    yahooTicker: string,
+  ): Promise<MarketQuote> {
+    if (this.providerOrchestrator) {
+      const orchestrated = await this.providerOrchestrator.fetchQuote(
+        assetType,
+        yahooTicker,
+      );
+      return orchestrated.quote.withEnrichment({
+        source: orchestrated.source,
+        sourceTimestamp: orchestrated.timestamp,
+        confidence: orchestrated.confidence,
+      });
+    }
+
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= this.quoteRetryAttempts; attempt += 1) {
       try {
-        return await this.quoteProvider.fetchQuote(yahooTicker);
+        const quote = await this.quoteProvider.fetchQuote(yahooTicker);
+        return quote.withEnrichment({
+          source: 'data912.com',
+          sourceTimestamp: new Date(),
+          confidence: 'MEDIUM',
+        });
       } catch (error) {
         lastError = error as Error;
 
@@ -635,7 +892,12 @@ export class MarketDataService {
     if (this.fallbackQuoteProvider) {
       try {
         this.logger.warn(`Using fallback quote provider for ${yahooTicker}`);
-        return await this.fallbackQuoteProvider.fetchQuote(yahooTicker);
+        const quote = await this.fallbackQuoteProvider.fetchQuote(yahooTicker);
+        return quote.withEnrichment({
+          source: 'yahoo-finance',
+          sourceTimestamp: new Date(),
+          confidence: 'LOW',
+        });
       } catch (fallbackError) {
         lastError = fallbackError as Error;
       }
@@ -658,5 +920,13 @@ export class MarketDataService {
 
     const argentinaHour = (now.getUTCHours() - 3 + 24) % 24;
     return argentinaHour >= 10 && argentinaHour <= 17;
+  }
+
+  private toIsoStringOrNull(value: Date | null): string | null {
+    if (!value || Number.isNaN(value.getTime())) {
+      return null;
+    }
+
+    return value.toISOString();
   }
 }

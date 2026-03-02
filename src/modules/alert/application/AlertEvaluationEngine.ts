@@ -3,6 +3,11 @@ import { ALERT_REPOSITORY, type IAlertRepository } from './IAlertRepository';
 import { Alert } from '../domain/entities/Alert';
 import { AlertType } from '../domain/enums/AlertType';
 
+export interface AlertEvaluationStats {
+  evaluatedCount: number;
+  triggeredAlerts: Alert[];
+}
+
 @Injectable()
 export class AlertEvaluationEngine {
   constructor(
@@ -14,6 +19,18 @@ export class AlertEvaluationEngine {
     assetId: string,
     currentPrice: number,
   ): Promise<Alert[]> {
+    const result = await this.evaluateAlertsForAssetWithStats(
+      assetId,
+      currentPrice,
+    );
+
+    return result.triggeredAlerts;
+  }
+
+  public async evaluateAlertsForAssetWithStats(
+    assetId: string,
+    currentPrice: number,
+  ): Promise<AlertEvaluationStats> {
     const alerts = await this.alertRepository.findActiveByAssetId(assetId);
     return this.evaluateAndPersist(alerts, currentPrice);
   }
@@ -22,6 +39,18 @@ export class AlertEvaluationEngine {
     dollarType: string,
     currentPrice: number,
   ): Promise<Alert[]> {
+    const result = await this.evaluateAlertsForDollarWithStats(
+      dollarType,
+      currentPrice,
+    );
+
+    return result.triggeredAlerts;
+  }
+
+  public async evaluateAlertsForDollarWithStats(
+    dollarType: string,
+    currentPrice: number,
+  ): Promise<AlertEvaluationStats> {
     const alerts = await this.alertRepository.findActiveByType(
       AlertType.DOLLAR,
     );
@@ -32,6 +61,14 @@ export class AlertEvaluationEngine {
   }
 
   public async evaluateAlertsForRisk(currentValue: number): Promise<Alert[]> {
+    const result = await this.evaluateAlertsForRiskWithStats(currentValue);
+
+    return result.triggeredAlerts;
+  }
+
+  public async evaluateAlertsForRiskWithStats(
+    currentValue: number,
+  ): Promise<AlertEvaluationStats> {
     const alerts = await this.alertRepository.findActiveByType(AlertType.RISK);
     return this.evaluateAndPersist(alerts, currentValue);
   }
@@ -39,7 +76,7 @@ export class AlertEvaluationEngine {
   private async evaluateAndPersist(
     alerts: Alert[],
     currentValue: number,
-  ): Promise<Alert[]> {
+  ): Promise<AlertEvaluationStats> {
     const triggered: Alert[] = [];
 
     for (const alert of alerts) {
@@ -56,6 +93,9 @@ export class AlertEvaluationEngine {
       triggered.push(saved);
     }
 
-    return triggered;
+    return {
+      evaluatedCount: alerts.length,
+      triggeredAlerts: triggered,
+    };
   }
 }

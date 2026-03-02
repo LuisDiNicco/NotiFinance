@@ -55,6 +55,14 @@ class EnvironmentVariables {
   @IsOptional()
   RUN_MIGRATIONS: boolean = true;
 
+  @IsBoolean()
+  @IsOptional()
+  DB_LOGGING: boolean = false;
+
+  @IsBoolean()
+  @IsOptional()
+  HTTP_REQUEST_LOGGING: boolean = false;
+
   @IsString()
   @IsOptional()
   JWT_SECRET: string = 'change-me-access-secret';
@@ -70,6 +78,18 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN: string = '7d';
+
+  @IsString()
+  @IsOptional()
+  EVENTS_INGESTION_API_KEY: string = '';
+
+  @IsString()
+  @IsOptional()
+  MONITORING_API_KEY: string = '';
+
+  @IsString()
+  @IsOptional()
+  TEMPLATE_ADMIN_API_KEY: string = '';
 
   @IsNumber()
   @IsOptional()
@@ -106,6 +126,41 @@ class EnvironmentVariables {
   @IsNumber()
   @IsOptional()
   MARKET_TOP_MOVERS_CACHE_TTL_SECONDS: number = 60;
+
+  @IsNumber()
+  @IsOptional()
+  DATA_STALE_THRESHOLD_MINUTES: number = 30;
+
+  @IsString()
+  @IsOptional()
+  NEWS_AGGREGATION_CRON: string = '*/30 * * * *';
+
+  @IsNumber()
+  @IsOptional()
+  NEWS_RETENTION_DAYS: number = 7;
+
+  @IsNumber()
+  @IsOptional()
+  NEWS_HTTP_TIMEOUT_MS: number = 8000;
+
+  @IsNumber()
+  @IsOptional()
+  NEWS_MAX_ITEMS_PER_FEED: number = 30;
+
+  @IsString()
+  @IsOptional()
+  NEWS_FEED_AMBITO_URL: string =
+    'https://www.ambito.com/rss/pages/mercados.xml';
+
+  @IsString()
+  @IsOptional()
+  NEWS_FEED_CRONISTA_URL: string =
+    'https://www.cronista.com/files/rss/news.xml';
+
+  @IsString()
+  @IsOptional()
+  NEWS_FEED_INFOBAE_URL: string =
+    'https://www.infobae.com/arc/outboundfeeds/rss/';
 }
 
 export function validate(config: Record<string, unknown>) {
@@ -119,5 +174,32 @@ export function validate(config: Record<string, unknown>) {
   if (errors.length > 0) {
     throw new Error(errors.toString());
   }
+
+  const isProduction = validatedConfig.NODE_ENV === Environment.Production;
+
+  if (
+    isProduction &&
+    (validatedConfig.JWT_SECRET === 'change-me-access-secret' ||
+      validatedConfig.JWT_REFRESH_SECRET === 'change-me-refresh-secret')
+  ) {
+    throw new Error(
+      'JWT secrets must be configured with secure values in production',
+    );
+  }
+
+  if (isProduction && !validatedConfig.EVENTS_INGESTION_API_KEY.trim()) {
+    throw new Error(
+      'EVENTS_INGESTION_API_KEY must be configured in production',
+    );
+  }
+
+  if (isProduction && !validatedConfig.MONITORING_API_KEY.trim()) {
+    throw new Error('MONITORING_API_KEY must be configured in production');
+  }
+
+  if (isProduction && !validatedConfig.TEMPLATE_ADMIN_API_KEY.trim()) {
+    throw new Error('TEMPLATE_ADMIN_API_KEY must be configured in production');
+  }
+
   return validatedConfig;
 }

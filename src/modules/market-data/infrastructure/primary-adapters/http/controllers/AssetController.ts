@@ -1,6 +1,9 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { MarketDataService } from '../../../../application/MarketDataService';
+import {
+  AssetDetail,
+  MarketDataService,
+} from '../../../../application/MarketDataService';
 import { Asset } from '../../../../domain/entities/Asset';
 import { MarketQuote } from '../../../../domain/entities/MarketQuote';
 import { AssetListQueryRequest } from './request/AssetListQueryRequest';
@@ -21,10 +24,12 @@ export class AssetController {
   }> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const params = query.type
+      ? { type: query.type, page, limit }
+      : { page, limit };
     const result = await this.marketDataService.getAssetsPaginated({
-      type: query.type,
-      page,
-      limit,
+      ...params,
+      ...(query.includeInactive ? { includeInactive: true } : {}),
     });
 
     return {
@@ -72,8 +77,8 @@ export class AssetController {
   @ApiResponse({ status: 200 })
   public async getAssetByTicker(
     @Param('ticker') ticker: string,
-  ): Promise<Asset> {
-    return this.marketDataService.getAssetByTicker(ticker);
+  ): Promise<AssetDetail> {
+    return this.marketDataService.getAssetDetailByTicker(ticker);
   }
 
   @Get(':ticker/quotes')

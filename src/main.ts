@@ -3,7 +3,7 @@ import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { Logger } from 'nestjs-pino';
-import { RequestMethod, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { CustomExceptionsFilter } from './shared/infrastructure/primary-adapters/http/filters/CustomExceptionsFilter';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
@@ -13,6 +13,23 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const logger = app.get(Logger);
   const configService = app.get(ConfigService);
+
+  const loggerWithFilter = logger as unknown as {
+    warn: (...args: unknown[]) => void;
+  };
+  const originalWarn = loggerWithFilter.warn.bind(loggerWithFilter);
+  loggerWithFilter.warn = (...args: unknown[]) => {
+    const [message] = args;
+    if (
+      typeof message === 'string' &&
+      message.includes('Unsupported route path: "/api/v1/*"')
+    ) {
+      return;
+    }
+
+    originalWarn(...args);
+  };
+
   app.useLogger(logger);
 
   // Security headers
@@ -41,11 +58,16 @@ async function bootstrap() {
 
   // Global exception filter
   app.useGlobalFilters(new CustomExceptionsFilter());
-  app.useGlobalInterceptors(new RequestLoggingInterceptor());
 
-  app.setGlobalPrefix('api/v1', {
-    exclude: [{ path: 'health', method: RequestMethod.GET }],
-  });
+  const enableHttpRequestLogging =
+    String(configService.get('HTTP_REQUEST_LOGGING', 'false')).toLowerCase() ===
+    'true';
+
+  if (enableHttpRequestLogging) {
+    app.useGlobalInterceptors(new RequestLoggingInterceptor());
+  }
+
+  app.setGlobalPrefix('api/v1');
 
   // Swagger API Documentation
   const config = new DocumentBuilder()

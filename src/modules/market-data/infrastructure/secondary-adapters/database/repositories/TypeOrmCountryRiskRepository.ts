@@ -24,6 +24,7 @@ export class TypeOrmCountryRiskRepository implements ICountryRiskRepository {
 
   public async findLatest(): Promise<CountryRisk | null> {
     const entity = await this.repository.findOne({
+      where: {},
       order: { timestamp: 'DESC' },
     });
 

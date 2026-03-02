@@ -9,11 +9,14 @@ export const getDatabaseConfig = (
   autoLoadEntities: true,
   synchronize: false, // Strict Requirement: Never True
   migrations: [
-    __dirname + '/../../../secondary-adapters/database/migrations/*{.ts,.js}',
+    __dirname + '/../../secondary-adapters/database/migrations/*{.ts,.js}',
   ],
   migrationsRun: configService.get<boolean>(
     'integrations.database.runMigrations',
     true,
   ),
-  logging: configService.get('NODE_ENV') !== 'production',
+  logging:
+    String(configService.get('DB_LOGGING', 'false')).toLowerCase() === 'true'
+      ? ['query', 'error', 'warn']
+      : ['error', 'warn'],
 });

@@ -1,4 +1,1 @@
-export enum NotificationChannel {
-  EMAIL = 'EMAIL',
-  IN_APP = 'IN_APP',
-}
+export { NotificationChannel } from '../../../../shared/domain/enums/NotificationChannel';

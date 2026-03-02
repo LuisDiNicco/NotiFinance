@@ -13,7 +13,7 @@ import { Alert } from '../../../../../domain/entities/Alert';
 import { AlertCondition } from '../../../../../domain/enums/AlertCondition';
 import { AlertStatus } from '../../../../../domain/enums/AlertStatus';
 import { AlertType } from '../../../../../domain/enums/AlertType';
-import { NotificationChannel } from '../../../../../../preferences/domain/enums/NotificationChannel';
+import { NotificationChannel } from '../../../../../../../shared/domain/enums/NotificationChannel';
 
 export class CreateAlertRequest {
   @ApiPropertyOptional({

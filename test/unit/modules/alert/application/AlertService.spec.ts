@@ -36,6 +36,7 @@ describe('AlertService', () => {
     repository = {
       findByUserIdPaginated: jest.fn(),
       findById: jest.fn(),
+      countByUserId: jest.fn(),
       findActiveByAssetId: jest.fn(),
       findActiveByType: jest.fn(),
       countActiveByUserId: jest.fn(),

@@ -52,12 +52,11 @@ export function WatchlistWidget({ items }: WatchlistWidgetProps) {
             {items.slice(0, 5).map((item) => {
               const isPositive = item.variation > 0;
               const isNegative = item.variation < 0;
-              const routePrefix = item.type === "STOCK" ? "acciones" : item.type === "CEDEAR" ? "cedears" : "bonos";
 
               return (
                 <Link
                   key={item.id}
-                  href={`/assets/${routePrefix}/${item.symbol}`}
+                  href={`/assets/${item.symbol}`}
                   className="flex items-center justify-between p-2 -mx-2 rounded-md hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3">

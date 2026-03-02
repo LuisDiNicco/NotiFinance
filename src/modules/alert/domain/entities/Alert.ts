@@ -1,4 +1,4 @@
-import { NotificationChannel } from '../../../preferences/domain/enums/NotificationChannel';
+import { NotificationChannel } from '../../../../shared/domain/enums/NotificationChannel';
 import { AlertCondition } from '../enums/AlertCondition';
 import { AlertStatus } from '../enums/AlertStatus';
 import { AlertType } from '../enums/AlertType';

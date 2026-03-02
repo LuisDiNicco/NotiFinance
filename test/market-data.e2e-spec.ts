@@ -1,10 +1,13 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { MarketController } from '../src/modules/market-data/infrastructure/primary-adapters/http/controllers/MarketController';
 import { AssetController } from '../src/modules/market-data/infrastructure/primary-adapters/http/controllers/AssetController';
 import { SearchController } from '../src/modules/market-data/infrastructure/primary-adapters/http/controllers/SearchController';
+import { ProviderHealthController } from '../src/modules/market-data/infrastructure/primary-adapters/http/controllers/ProviderHealthController';
 import { MarketDataService } from '../src/modules/market-data/application/MarketDataService';
+import { ProviderHealthTracker } from '../src/modules/market-data/application/ProviderHealthTracker';
 import { Asset } from '../src/modules/market-data/domain/entities/Asset';
 import { AssetType } from '../src/modules/market-data/domain/enums/AssetType';
 import { DollarQuote } from '../src/modules/market-data/domain/entities/DollarQuote';
@@ -19,6 +22,7 @@ const assets = [
 
 describe('Market data endpoints (e2e)', () => {
   let app: INestApplication;
+  const monitoringApiKey = 'test-monitoring-key';
 
   const marketDataServiceMock = {
     getDollarQuotes: jest
@@ -126,6 +130,16 @@ describe('Market data endpoints (e2e)', () => {
       total: assets.length,
     }),
     getAssets: jest.fn().mockResolvedValue(assets),
+    getAssetDetailByTicker: jest.fn().mockResolvedValue({
+      ticker: 'GGAL',
+      name: 'Galicia',
+      assetType: AssetType.STOCK,
+      sector: 'Financiero',
+      yahooTicker: 'GGAL.BA',
+      latestQuote: null,
+      last5d: [],
+      stats30d: null,
+    }),
     getAssetByTicker: jest.fn().mockResolvedValue(assets[0]),
     searchAssets: jest.fn().mockResolvedValue([assets[0]]),
     getAssetQuotes: jest.fn().mockResolvedValue([
@@ -133,17 +147,60 @@ describe('Market data endpoints (e2e)', () => {
         assetId: 'asset-1',
         closePrice: 1000,
         openPrice: 980,
+        source: 'data912.com',
+        sourceTimestamp: new Date('2024-01-01T00:00:00.000Z'),
+        confidence: 'HIGH',
       }),
     ]),
   };
 
+  const providerHealthTrackerMock = {
+    getProviderHealth: jest.fn().mockResolvedValue({
+      updatedAt: new Date('2026-03-02T10:00:00.000Z'),
+      providers: [
+        {
+          providerName: 'data912.com',
+          status: 'SUCCESS',
+          checks24h: 12,
+          uptime24h: 91.67,
+          errorRate1h: 0,
+          avgLatencyMs: 245,
+          lastCheckedAt: new Date('2026-03-02T09:55:00.000Z'),
+          lastSuccessAt: new Date('2026-03-02T09:55:00.000Z'),
+          lastFailureAt: new Date('2026-03-02T08:10:00.000Z'),
+        },
+      ],
+    }),
+  };
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      controllers: [MarketController, AssetController, SearchController],
+      controllers: [
+        MarketController,
+        AssetController,
+        SearchController,
+        ProviderHealthController,
+      ],
       providers: [
         {
           provide: MarketDataService,
           useValue: marketDataServiceMock,
+        },
+        {
+          provide: ProviderHealthTracker,
+          useValue: providerHealthTrackerMock,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string, defaultValue?: string) => {
+              if (key === 'MONITORING_API_KEY') {
+                return monitoringApiKey;
+              }
+
+              return defaultValue;
+            }),
+          },
         },
       ],
     }).compile();
@@ -234,5 +291,19 @@ describe('Market data endpoints (e2e)', () => {
       .expect(200);
     expect(Array.isArray(response.body)).toBe(true);
     expect(response.body[0].closePrice).toBe(1000);
+    expect(response.body[0].source).toBe('data912.com');
+    expect(response.body[0].sourceTimestamp).toBe('2024-01-01T00:00:00.000Z');
+    expect(response.body[0].confidence).toBe('HIGH');
+  });
+
+  it('/api/v1/health/providers (GET)', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/health/providers')
+      .set('x-monitoring-api-key', monitoringApiKey)
+      .expect(200);
+
+    expect(response.body).toHaveProperty('updatedAt');
+    expect(Array.isArray(response.body.providers)).toBe(true);
+    expect(response.body.providers[0].providerName).toBe('data912.com');
   });
 });

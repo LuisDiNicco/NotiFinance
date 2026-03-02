@@ -71,12 +71,11 @@ export function TopMoversTable({ data }: TopMoversTableProps) {
               {currentData.map((item) => {
                 const isPositive = item.variation > 0;
                 const isNegative = item.variation < 0;
-                const routePrefix = item.type === "STOCK" ? "acciones" : "cedears";
 
                 return (
                   <TableRow key={item.symbol} className="cursor-pointer hover:bg-muted/50">
                     <TableCell>
-                      <Link href={`/assets/${routePrefix}/${item.symbol}`} className="block">
+                      <Link href={`/assets/${item.symbol}`} className="block">
                         <div className="font-medium">{item.symbol}</div>
                         <div className="text-xs text-muted-foreground truncate max-w-[120px] sm:max-w-[200px]">
                           {item.name}
