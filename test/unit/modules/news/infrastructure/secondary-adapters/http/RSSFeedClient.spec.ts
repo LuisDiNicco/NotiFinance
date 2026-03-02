@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { AssetEntity } from 'src/modules/market-data/infrastructure/secondary-adapters/database/entities/AssetEntity';
@@ -33,18 +35,8 @@ describe('RSSFeedClient', () => {
       }),
     } as unknown as ConfigService;
 
-    const rssFixture = `
-      <rss version="2.0">
-        <channel>
-          <item>
-            <title><![CDATA[GGAL y YPFD lideran subas del día]]></title>
-            <link>https://news.test/article-1</link>
-            <pubDate>Mon, 02 Mar 2026 10:00:00 GMT</pubDate>
-            <category>Mercados</category>
-          </item>
-        </channel>
-      </rss>
-    `;
+    const fixturePath = join(__dirname, 'fixtures', 'news-rss.fixture.xml');
+    const rssFixture = readFileSync(fixturePath, 'utf8');
 
     const client = new RSSFeedClient(configService, assetRepository);
     jest
