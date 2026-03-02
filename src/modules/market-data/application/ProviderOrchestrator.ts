@@ -105,7 +105,7 @@ export class ProviderOrchestrator {
     }
 
     if (assetType === AssetType.BOND || assetType === AssetType.ON) {
-      return ['data912.com', 'open.bymadata.com.ar', 'yahoo-finance'];
+      return ['data912.com', 'yahoo-finance'];
     }
 
     return ['data912.com', 'yahoo-finance'];

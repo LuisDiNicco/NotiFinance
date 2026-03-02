@@ -46,6 +46,7 @@ import { CountryRisk } from '../../../../../src/modules/market-data/domain/entit
 import { AssetNotFoundError } from '../../../../../src/modules/market-data/domain/errors/AssetNotFoundError';
 import { MarketDataUnavailableError } from '../../../../../src/modules/market-data/domain/errors/MarketDataUnavailableError';
 import { MarketQuote } from '../../../../../src/modules/market-data/domain/entities/MarketQuote';
+import { ProviderOrchestrator } from '../../../../../src/modules/market-data/application/ProviderOrchestrator';
 
 describe('MarketDataService', () => {
   let service: MarketDataService;
@@ -950,6 +951,55 @@ describe('MarketDataService', () => {
     expect(updated.updates).toHaveLength(11);
     expect(quoteProvider.fetchQuote).toHaveBeenCalledTimes(11);
     expect(eventPublisher.publishEvent).toHaveBeenCalledTimes(11);
+  });
+
+  it('uses provider orchestrator when available for stock refresh', async () => {
+    const localProviderOrchestrator = {
+      fetchQuote: jest.fn().mockResolvedValue({
+        quote: new MarketQuote(new Date(), { closePrice: 1000 }),
+        source: 'data912.com',
+        confidence: 'HIGH',
+        timestamp: new Date(),
+      }),
+    } as unknown as ProviderOrchestrator;
+
+    const localModule = await Test.createTestingModule({
+      providers: [
+        MarketDataService,
+        { provide: ConfigService, useValue: configService },
+        { provide: MARKET_CACHE, useValue: marketCache },
+        { provide: ASSET_REPOSITORY, useValue: assetRepository },
+        { provide: DOLLAR_PROVIDER, useValue: dollarProvider },
+        { provide: RISK_PROVIDER, useValue: riskProvider },
+        { provide: DOLLAR_QUOTE_REPOSITORY, useValue: dollarQuoteRepository },
+        { provide: COUNTRY_RISK_REPOSITORY, useValue: countryRiskRepository },
+        { provide: QUOTE_PROVIDER, useValue: quoteProvider },
+        { provide: QUOTE_FALLBACK_PROVIDER, useValue: fallbackQuoteProvider },
+        { provide: QUOTE_REPOSITORY, useValue: quoteRepository },
+        { provide: ProviderOrchestrator, useValue: localProviderOrchestrator },
+        { provide: EVENT_PUBLISHER, useValue: eventPublisher },
+      ],
+    }).compile();
+
+    const localService = localModule.get<MarketDataService>(MarketDataService);
+    const asset = new Asset(
+      'GGAL',
+      'Galicia',
+      AssetType.STOCK,
+      'Fin',
+      'GGAL.BA',
+    );
+    asset.id = 'asset-1';
+
+    assetRepository.findAll.mockResolvedValue([asset]);
+
+    await localService.refreshStockQuotes();
+
+    expect(localProviderOrchestrator.fetchQuote).toHaveBeenCalledWith(
+      AssetType.STOCK,
+      'GGAL.BA',
+    );
+    expect(quoteProvider.fetchQuote).not.toHaveBeenCalled();
   });
 
   it('returns zero updated quotes when fallback provider is not configured', async () => {

@@ -74,6 +74,7 @@ export class MarketDataService {
     @Inject(QUOTE_REPOSITORY)
     private readonly quoteRepository: IQuoteRepository,
     @Optional()
+    @Inject(ProviderOrchestrator)
     private readonly providerOrchestrator: ProviderOrchestrator | null,
     @Inject(EVENT_PUBLISHER)
     private readonly eventPublisher: IEventPublisher,
