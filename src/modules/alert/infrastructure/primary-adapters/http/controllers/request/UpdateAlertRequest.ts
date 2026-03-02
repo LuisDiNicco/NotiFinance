@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { AlertCondition } from '../../../../../domain/enums/AlertCondition';
 import { AlertType } from '../../../../../domain/enums/AlertType';
-import { NotificationChannel } from '../../../../../../preferences/domain/enums/NotificationChannel';
+import { NotificationChannel } from '../../../../../../../shared/domain/enums/NotificationChannel';
 
 export class UpdateAlertRequest {
   @ApiPropertyOptional()

@@ -9,6 +9,7 @@ import {
 } from './infrastructure/secondary-adapters/message-brokers/publishers/RabbitMQEventPublisher';
 import { EVENT_PUBLISHER } from './application/IEventPublisher';
 import { RabbitMqTopologyService } from './infrastructure/secondary-adapters/message-brokers/RabbitMqTopologyService';
+import { IdempotencyInterceptor } from './infrastructure/primary-adapters/http/interceptors/IdempotencyInterceptor';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { RabbitMqTopologyService } from './infrastructure/secondary-adapters/mes
   providers: [
     EventIngestionService,
     RabbitMqTopologyService,
+    IdempotencyInterceptor,
     {
       provide: EVENT_PUBLISHER,
       useClass: RabbitMQEventPublisher,

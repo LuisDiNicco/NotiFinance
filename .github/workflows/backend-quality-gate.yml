@@ -6,6 +6,9 @@ on:
       - 'src/**'
       - 'test/**'
       - 'scripts/**'
+      - 'Dockerfile'
+      - 'docker-compose*.yml'
+      - '.dockerignore'
       - 'package.json'
       - 'package-lock.json'
       - 'tsconfig*.json'
@@ -14,6 +17,13 @@ on:
   push:
     branches:
       - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-quality-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
@@ -27,7 +37,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
 
       - name: Install dependencies
@@ -42,6 +52,8 @@ jobs:
         with:
           name: coverage-unit
           path: coverage/unit
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Upload e2e coverage
         if: always()
@@ -49,3 +61,5 @@ jobs:
         with:
           name: coverage-e2e
           path: coverage/e2e
+          retention-days: 7
+          if-no-files-found: warn

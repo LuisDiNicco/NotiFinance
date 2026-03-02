@@ -185,5 +185,13 @@ export function validate(config: Record<string, unknown>) {
     );
   }
 
+  if (isProduction && !validatedConfig.MONITORING_API_KEY.trim()) {
+    throw new Error('MONITORING_API_KEY must be configured in production');
+  }
+
+  if (isProduction && !validatedConfig.TEMPLATE_ADMIN_API_KEY.trim()) {
+    throw new Error('TEMPLATE_ADMIN_API_KEY must be configured in production');
+  }
+
   return validatedConfig;
 }

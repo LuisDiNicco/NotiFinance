@@ -7,6 +7,7 @@ import {
   Req,
   Logger,
   UnauthorizedException,
+  UseInterceptors,
 } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
@@ -14,6 +15,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { EventPayloadRequest } from './request/EventPayloadRequest';
 import { EventIngestionService } from '../../../../application/EventIngestionService';
+import { IdempotencyInterceptor } from '../interceptors/IdempotencyInterceptor';
 
 @ApiTags('Events')
 @Controller('events')
@@ -26,6 +28,7 @@ export class EventIngestionController {
   ) {}
 
   @Post()
+  @UseInterceptors(IdempotencyInterceptor)
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
     summary:

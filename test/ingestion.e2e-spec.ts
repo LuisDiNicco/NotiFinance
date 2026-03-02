@@ -6,15 +6,28 @@ import { EventIngestionController } from '../src/modules/ingestion/infrastructur
 import { EventIngestionService } from '../src/modules/ingestion/application/EventIngestionService';
 import { EVENT_PUBLISHER } from '../src/modules/ingestion/application/IEventPublisher';
 import { CustomExceptionsFilter } from '../src/shared/infrastructure/primary-adapters/http/filters/CustomExceptionsFilter';
+import { RedisService } from '../src/shared/infrastructure/base/redis/redis.service';
 
 describe('IngestionController (e2e)', () => {
   let app: INestApplication;
   const mockPublisher = { publishEvent: jest.fn() };
+  const idempotencyCache = new Set<string>();
+  const redisServiceMock = {
+    setNx: jest.fn().mockImplementation(async (key: string) => {
+      if (idempotencyCache.has(key)) {
+        return false;
+      }
+
+      idempotencyCache.add(key);
+      return true;
+    }),
+  } as unknown as RedisService;
   const ingestionApiKey = 'test-ingestion-key';
   const previousIngestionApiKey = process.env['EVENTS_INGESTION_API_KEY'];
 
   beforeEach(() => {
     jest.clearAllMocks();
+    idempotencyCache.clear();
   });
 
   beforeAll(async () => {
@@ -34,6 +47,10 @@ describe('IngestionController (e2e)', () => {
             get: (key: string, defaultValue?: string) =>
               process.env[key] ?? defaultValue,
           },
+        },
+        {
+          provide: RedisService,
+          useValue: redisServiceMock,
         },
       ],
     }).compile();
@@ -99,7 +116,7 @@ describe('IngestionController (e2e)', () => {
       .expect(202);
   });
 
-  it('/events (POST) - should process same payload again if received twice', async () => {
+  it('/events (POST) - should return duplicate response on repeated payload', async () => {
     mockPublisher.publishEvent.mockResolvedValue(undefined);
 
     const payload = {
@@ -119,9 +136,9 @@ describe('IngestionController (e2e)', () => {
       .post('/api/v1/events')
       .set('x-ingestion-api-key', ingestionApiKey)
       .send(payload)
-      .expect(202);
+      .expect(200);
 
-    expect(mockPublisher.publishEvent).toHaveBeenCalledTimes(2);
+    expect(mockPublisher.publishEvent).toHaveBeenCalledTimes(1);
   });
 
   it('/events (POST) - should fail on schema validation error', () => {
