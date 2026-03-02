@@ -90,6 +90,9 @@ export class TypeOrmAssetRepository implements IAssetRepository {
     );
 
     asset.id = entity.id;
+    asset.maturityDate = entity.maturityDate;
+    asset.isActive = entity.isActive;
+    asset.lastCatalogCheck = entity.lastCatalogCheck;
     return asset;
   }
 }

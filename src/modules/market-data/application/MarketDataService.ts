@@ -34,6 +34,8 @@ import { AssetNotFoundError } from '../domain/errors/AssetNotFoundError';
 import { MarketDataUnavailableError } from '../domain/errors/MarketDataUnavailableError';
 import { MARKET_CACHE, type IMarketCache } from './IMarketCache';
 import { ProviderOrchestrator } from './ProviderOrchestrator';
+import { calculateTNATEA, calculateYTM } from './FixedIncomeCalculator';
+import { BOND_REFERENCE_DATA } from './FixedIncomeReferenceData';
 
 export interface MarketQuoteUpdate {
   ticker: string;
@@ -42,6 +44,23 @@ export interface MarketQuoteUpdate {
   volume: number;
   timestamp: string;
 }
+
+export interface FixedIncomeDetails {
+  instrumentType: 'BOND' | 'LECAP' | 'BONCAP';
+  faceValue: number;
+  marketPrice: number;
+  maturityDate: string;
+  ytm?: number;
+  tna?: number;
+  tea?: number;
+  couponRate?: number;
+  couponFrequencyPerYear?: number;
+  couponCalendar?: string[];
+}
+
+export type AssetDetail = Asset & {
+  fixedIncome: FixedIncomeDetails | null;
+};
 
 @Injectable()
 export class MarketDataService {
@@ -179,8 +198,145 @@ export class MarketDataService {
     return asset;
   }
 
+  public async getAssetDetailByTicker(ticker: string): Promise<AssetDetail> {
+    const asset = await this.getAssetByTicker(ticker);
+
+    if (!asset.id) {
+      return {
+        ...asset,
+        fixedIncome: null,
+      };
+    }
+
+    const latestQuote = await this.quoteRepository.findLatestByAsset(asset.id);
+    const fixedIncome = this.buildFixedIncomeDetails(asset, latestQuote);
+
+    return {
+      ...asset,
+      fixedIncome,
+    };
+  }
+
   public async searchAssets(query: string, limit = 10): Promise<Asset[]> {
     return this.assetRepository.search(query, limit);
+  }
+
+  private buildFixedIncomeDetails(
+    asset: Asset,
+    latestQuote: MarketQuote | null,
+  ): FixedIncomeDetails | null {
+    const normalizedTicker = asset.ticker.trim().toUpperCase();
+
+    if (
+      asset.assetType !== AssetType.BOND &&
+      asset.assetType !== AssetType.LECAP &&
+      asset.assetType !== AssetType.BONCAP
+    ) {
+      return null;
+    }
+
+    const marketPrice = this.pickMarketPrice(latestQuote);
+    if (marketPrice == null) {
+      return null;
+    }
+
+    if (asset.assetType === AssetType.BOND) {
+      const reference = BOND_REFERENCE_DATA[normalizedTicker];
+      if (!reference) {
+        return null;
+      }
+
+      const maturityDate = new Date(reference.maturityDate);
+      const ytm = calculateYTM({
+        price: marketPrice,
+        couponRate: reference.couponRate,
+        faceValue: reference.faceValue,
+        maturityDate,
+        frequency: reference.couponFrequencyPerYear,
+      });
+
+      const normalizedYtm = ytm == null ? null : this.roundTo(ytm, 6);
+
+      return {
+        instrumentType: 'BOND',
+        faceValue: reference.faceValue,
+        marketPrice: this.roundTo(marketPrice, 6),
+        maturityDate: reference.maturityDate,
+        couponRate: reference.couponRate,
+        couponFrequencyPerYear: reference.couponFrequencyPerYear,
+        couponCalendar: reference.couponCalendar,
+        ...(normalizedYtm == null ? {} : { ytm: normalizedYtm }),
+      };
+    }
+
+    const maturityDate = this.resolveMaturityDate(asset, normalizedTicker);
+    if (!maturityDate) {
+      return null;
+    }
+
+    const tnaTea = calculateTNATEA({
+      price: marketPrice,
+      faceValue: 100,
+      maturityDate,
+    });
+
+    const normalizedTna = tnaTea == null ? null : this.roundTo(tnaTea.tna, 6);
+    const normalizedTea = tnaTea == null ? null : this.roundTo(tnaTea.tea, 6);
+
+    return {
+      instrumentType: asset.assetType === AssetType.LECAP ? 'LECAP' : 'BONCAP',
+      faceValue: 100,
+      marketPrice: this.roundTo(marketPrice, 6),
+      maturityDate: maturityDate.toISOString().slice(0, 10),
+      ...(normalizedTna == null ? {} : { tna: normalizedTna }),
+      ...(normalizedTea == null ? {} : { tea: normalizedTea }),
+    };
+  }
+
+  private resolveMaturityDate(asset: Asset, ticker: string): Date | null {
+    if (
+      asset.maturityDate instanceof Date &&
+      !Number.isNaN(asset.maturityDate.getTime())
+    ) {
+      return asset.maturityDate;
+    }
+
+    const reference = BOND_REFERENCE_DATA[ticker];
+    if (!reference) {
+      return null;
+    }
+
+    const parsed = new Date(reference.maturityDate);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  private pickMarketPrice(quote: MarketQuote | null): number | null {
+    if (!quote) {
+      return null;
+    }
+
+    if (typeof quote.closePrice === 'number') {
+      return quote.closePrice;
+    }
+
+    if (typeof quote.priceArs === 'number') {
+      return quote.priceArs;
+    }
+
+    if (typeof quote.priceUsd === 'number') {
+      return quote.priceUsd;
+    }
+
+    return null;
+  }
+
+  private roundTo(value: number, decimals: number): number {
+    const factor = 10 ** decimals;
+    return Math.round(value * factor) / factor;
   }
 
   public async getAssetQuotes(

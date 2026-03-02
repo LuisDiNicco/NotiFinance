@@ -73,7 +73,7 @@ describe('MultiSourceDollarClient', () => {
   it('builds consensus with ArgentinaDatos and validates official against BCRA', async () => {
     const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
 
-    const now = new Date('2026-03-02T12:00:00.000Z');
+    const now = new Date();
     const mockedAxios = axios as jest.Mocked<typeof axios>;
     mockedAxios.get.mockImplementation(async (url: string) => {
       if (url.includes('/dolares')) {
@@ -147,7 +147,7 @@ describe('MultiSourceDollarClient', () => {
   });
 
   it('does not call BCRA when official consensus cannot be formed', async () => {
-    const now = new Date('2026-03-02T12:00:00.000Z');
+    const now = new Date();
     const mockedAxios = axios as jest.Mocked<typeof axios>;
     mockedAxios.get.mockImplementation(async (url: string) => {
       if (url.includes('/dolares')) {

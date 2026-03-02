@@ -86,13 +86,24 @@ export class TypeOrmQuoteRepository implements IQuoteRepository {
     const row = await this.repository
       .createQueryBuilder('quote')
       .select('MAX(quote.date)', 'latest')
-      .getRawOne<{ latest: string | null }>();
+      .getRawOne<{ latest: string | Date | null }>();
 
     if (!row?.latest) {
       return null;
     }
 
-    return new Date(`${row.latest}T00:00:00.000Z`);
+    const parsedDate =
+      row.latest instanceof Date
+        ? new Date(row.latest)
+        : /^\d{4}-\d{2}-\d{2}$/.test(row.latest)
+          ? new Date(`${row.latest}T00:00:00.000Z`)
+          : new Date(row.latest);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return null;
+    }
+
+    return parsedDate;
   }
 
   public async findTopMovers(

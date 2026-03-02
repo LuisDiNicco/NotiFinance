@@ -98,6 +98,9 @@ export class CustomExceptionsFilter implements ExceptionFilter {
       ['ValidationError', HttpStatus.BAD_REQUEST],
       ['InvalidStateTransitionError', HttpStatus.CONFLICT],
       ['AuditPointLockedError', HttpStatus.CONFLICT],
+      ['AxiosError', HttpStatus.BAD_GATEWAY],
+      ['MarketDataUnavailableError', HttpStatus.SERVICE_UNAVAILABLE],
+      ['QueryFailedError', HttpStatus.SERVICE_UNAVAILABLE],
     ]);
     return statusMap.get(error.name) || HttpStatus.INTERNAL_SERVER_ERROR;
   }

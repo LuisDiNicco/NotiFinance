@@ -1,5 +1,7 @@
+"use client";
+
 import { AssetsTable } from "@/components/assets/AssetsTable";
-import { mockAssets } from "@/services/mockAssetsData";
+import { useAssetsCatalog } from "@/hooks/useAsset";
 
 interface CategoryAssetsPageProps {
   title: string;
@@ -7,7 +9,8 @@ interface CategoryAssetsPageProps {
 }
 
 export function CategoryAssetsPage({ title, types }: CategoryAssetsPageProps) {
-  const filteredAssets = mockAssets.filter((asset) => types.includes(asset.type));
+  const { data: catalogData = [], isLoading, isError } = useAssetsCatalog({ type: types[0] });
+  const filteredAssets = catalogData.filter((asset) => types.includes(asset.type));
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 p-6">
@@ -15,7 +18,13 @@ export function CategoryAssetsPage({ title, types }: CategoryAssetsPageProps) {
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground">Listado de {title.toLowerCase()} disponibles.</p>
       </div>
-      <AssetsTable initialData={filteredAssets} />
+      {isLoading ? (
+        <p className="text-muted-foreground">Cargando {title.toLowerCase()}...</p>
+      ) : isError ? (
+        <p className="text-destructive">No se pudieron cargar datos confiables para {title.toLowerCase()}.</p>
+      ) : (
+        <AssetsTable initialData={filteredAssets} />
+      )}
     </main>
   );
 }

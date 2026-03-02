@@ -5,6 +5,7 @@
     "test",
     "dist",
     "**/*spec.ts",
+    "notifinance-frontend",
     "noticore-client",
     "noticore-admin"
   ]

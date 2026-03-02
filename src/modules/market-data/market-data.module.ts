@@ -52,6 +52,8 @@ import { MarketGateway } from './infrastructure/secondary-adapters/websockets/Ma
 import { ProviderHealthTracker } from './application/ProviderHealthTracker';
 import { ProviderScorer } from './application/ProviderScorer';
 import { ProviderOrchestrator } from './application/ProviderOrchestrator';
+import { MEPCCLCalculationService } from './application/MEPCCLCalculationService';
+import { MEPCCLCalculationJob } from './infrastructure/primary-adapters/jobs/MEPCCLCalculationJob';
 
 @Module({
   imports: [
@@ -76,6 +78,7 @@ import { ProviderOrchestrator } from './application/ProviderOrchestrator';
     ProviderHealthTracker,
     ProviderScorer,
     ProviderOrchestrator,
+    MEPCCLCalculationService,
     {
       provide: ASSET_REPOSITORY,
       useClass: TypeOrmAssetRepository,
@@ -131,6 +134,7 @@ import { ProviderOrchestrator } from './application/ProviderOrchestrator';
     StockQuoteFetchJob,
     CedearQuoteFetchJob,
     BondQuoteFetchJob,
+    MEPCCLCalculationJob,
     HistoricalDataJob,
     ProviderHealthJob,
     CatalogMaintenanceJob,

@@ -1,374 +1,298 @@
-# NotiCore Architecture & Design Document
+# NotiFinance — Arquitectura Técnica
 
-## System Overview
+## 1. Propósito del documento
 
-NotiCore is an event-driven notification engine designed to process business events, evaluate user notification preferences, compile templates with runtime data, and dispatch notifications across multiple channels. The system emphasizes reliability, type safety, and clean separation of concerns through Hexagonal Architecture.
+Este documento describe en detalle la arquitectura de NotiFinance desde una perspectiva técnica: estructura por capas, módulos, contratos, decisiones de tecnología, trade-offs, riesgos y extensibilidad.
 
-## Core Architecture: Hexagonal Pattern (Ports and Adapters)
+Su objetivo es permitir que cualquier perfil técnico (backend, frontend, arquitectura, QA, DevOps) entienda rápidamente:
 
-NotiCore is structured in three strict layers with unidirectional dependency flow:
+- qué se construyó,
+- por qué se eligieron estas tecnologías,
+- cómo se comunican los componentes,
+- qué compromisos de diseño se asumieron.
 
-### Layer 1: Domain (Core Business Logic)
-Pure TypeScript business entities with no framework dependencies.
+---
 
-```
-domain/
-├── entities/          # UserPreference, NotificationTemplate, EventPayload
-├── enums/            # NotificationChannel, EventType
-└── errors/           # PreferencesNotFoundError, TemplateNotFoundError
-```
+## 2. Vista de alto nivel
 
-Characteristics:
-- No NestJS decorators, no TypeORM, no external library imports
-- Pure business methods (e.g., `canReceiveEventVia()` on UserPreference)
-- Single responsibility - each entity represents a core business concept
-- Fully testable without mocks or frameworks
+NotiFinance es una plataforma de seguimiento financiero con backend event-driven y frontend web.
 
-### Layer 2: Application (Use Cases & Orchestration)
-Orchestrates business flows using domain entities. Defines interfaces (Ports) that specify contracts for external dependencies.
+```mermaid
+flowchart TB
+    subgraph FE[Frontend - Next.js 15]
+        UI[UI React + App Router]
+        RQ[TanStack Query]
+        WSFE[Socket.io Client]
+    end
 
-```
-application/
-├── interfaces/       # IPreferencesRepository, IEventPublisher, IChannelProvider
-└── services/         # DispatcherService, TemplateCompilerService, EventIngestionService
-```
+    subgraph BE[Backend - NestJS 11]
+        API[REST API /api/v1]
+        GW[WebSocket Gateways]
+        APP[Application Services]
+        DOM[Domain Entities + Rules]
+        CONS[Consumers RabbitMQ]
+        JOBS[Cron Jobs Market Data]
+    end
 
-Characteristics:
-- Services orchestrate domain entities (max 200 lines to maintain focus)
-- Depends only on domain and interfaces
-- Throws domain errors (not NestJS exceptions)
-- Services use constructor injection with string tokens for interfaces
+    subgraph INF[Infra]
+        PG[(PostgreSQL)]
+        REDIS[(Redis)]
+        RMQ[(RabbitMQ)]
+        EXT[APIs Externas Market Data]
+    end
 
-### Layer 3: Infrastructure (Frameworks & External Systems)
-Implements concrete adapters for all external dependencies.
-
-```
-infrastructure/
-├── primary-adapters/       # Inbound traffic
-│   ├── http/              # Controllers for REST endpoints
-│   └── message-brokers/   # RabbitMQ consumers
-├── secondary-adapters/     # Outbound traffic
-│   ├── database/          # TypeORM repositories + mappers
-│   ├── message-brokers/   # RabbitMQ publisher
-│   └── workers/           # Channel implementations (Email, SMS, In-App)
-└── base/                  # Cross-cutting concerns (logger, filters, config)
-```
-
-Characteristics:
-- Implements application layer interfaces
-- Contains all NestJS decorators, TypeORM entities, external libraries
-- Never imports from primary-adapters (e.g., controllers cannot call consumers)
-- All external communication flows through interfaces
-
-### Dependency Rule
-
-```
-Primary Adapters -----> Application ----> Domain
-                            ^
-                            |
-                        Interfaces
-                            ^
-                            |
-Secondary Adapters
+    UI --> RQ --> API
+    UI --> WSFE --> GW
+    API --> APP --> DOM
+    APP --> PG
+    APP --> REDIS
+    APP --> RMQ
+    CONS --> APP
+    JOBS --> APP
+    APP --> EXT
+    RMQ --> CONS
 ```
 
-**Never violate**: Secondary adapters cannot declare dependencies on primary adapters. Both depend on application interfaces.
+---
 
-## Key Design Decisions
+## 3. Principios arquitectónicos
 
-### 1. Request/Response DTOs with Domain Mapping
+### 3.1 Arquitectura Hexagonal / Clean Architecture
 
-Every HTTP endpoint receives a Request DTO and returns a Response DTO. DTOs provide three functions:
+El backend aplica separación estricta de capas:
 
-1. **Input Validation** (Request DTOs)
-   ```typescript
-   // Request DTO with @IsString, @IsArray decorators (class-validator)
-   class PreferencesRequest {
-     toEntity(): UserPreference  // Converts validated input to domain
-   }
-   ```
+1. **Domain**: reglas de negocio puras, sin NestJS/TypeORM.
+2. **Application**: casos de uso y contratos (ports/interfaces).
+3. **Infrastructure**: adapters HTTP/DB/broker/cache/external APIs.
 
-2. **Type Safety** (Response DTOs)
-   ```typescript
-   // Response DTO prevents domain entity leakage to HTTP layer
-   class UserPreferenceResponse {
-     static fromEntity(entity: UserPreference): UserPreferenceResponse
-   }
-   ```
+Regla clave de dependencias:
 
-3. **API Contract** (Swagger @ApiProperty decorators)
-   - Documented in OpenAPI spec at `/api`
-   - Clear type information for API consumers
+- `infrastructure -> application -> domain`
+- `domain` no depende de ninguna capa externa.
 
-### 2. Database Mappers (ORM Decoupling)
+### 3.2 Event-driven como eje transversal
 
-TypeORM database entities are never exposed to application layer. Explicit mappers convert between persistence and domain:
+- Ingesta de mercado y eventos asíncronos sobre RabbitMQ.
+- Evaluación de alertas desacoplada de API HTTP.
+- Notificaciones persistidas y distribuidas por canales.
 
-```
-HTTP Request
-    ↓
-Request DTO → toEntity() → Domain Entity
-                               ↓
-                      Application Service
-                               ↓
-                      Database Mapper: toDomain()
-                               ↓
-                         TypeORM Entity (persisted)
-                               ↓
-                      Database Mapper: toPersistence()
-                               ↓
-                      Response DTO ← fromEntity()
-                               ↓
-                         HTTP Response
-```
+### 3.3 Type Safety y contratos explícitos
 
-Benefits:
-- ORM implementation details (timestamps, soft deletes) never reach business logic
-- Schema changes isolated to infrastructure layer
-- Domain entities remain pure and testable
+- TypeScript estricto.
+- DTOs de request/response para fronteras HTTP.
+- Validación de entrada con `class-validator`.
 
-### 3. Idempotency & Message Guarantees
+---
 
-#### Ingestion Layer (HTTP POST /events)
-- All event IDs checked against Redis SET NX operation
-- Duplicate events return 200 OK with metadata
-- Window: 24 hours (configurable via TTL)
-- Prevents message duplication at source
+## 4. Backend en detalle
 
-#### Processing Layer (RabbitMQ Consumer)
-Two-phase message handling with explicit Ack/Nack:
+## 4.1 Módulos funcionales
 
-**Automatic ACK** (message dropped safely):
-- Business errors (user not found, template not found)
-- User opted-out of event type/channel
-- Prevents poison pill loops (infinite retries of unresolvable state)
+| Módulo | Responsabilidad principal | Entradas | Salidas |
+|---|---|---|---|
+| `auth` | Registro/login/refresh/demo | REST | JWT + usuario |
+| `market-data` | Activos, cotizaciones, riesgo, resumen | REST + Cron + APIs externas | Datos de mercado + eventos |
+| `alert` | CRUD de alertas + motor de evaluación | REST + eventos de mercado | eventos `alert.*` |
+| `notification` | Persistencia + entrega de notificaciones | eventos `alert.*` + REST | inbox + WS + canal email/in-app |
+| `portfolio` | Portfolios, trades, holdings, distribución/performance | REST | métricas de portfolio |
+| `watchlist` | favoritos por usuario | REST | lista de activos monitoreados |
+| `preferences` | preferencias de notificación | REST | configuración de canales/frecuencia |
+| `template` | templates de notificación | REST + app services | render de mensajes |
+| `ingestion` | publicación/recepción de eventos | REST + broker | eventos en exchange topic |
 
-**Automatic NACK** (message re-queued):
-- Technical failures (database timeout, Redis unavailable)
-- Transient errors with retry expectation
-- Uses RabbitMQ's built-in exponential backoff
+## 4.2 Flujo de mercado a notificación
 
-### 4. Distributed Tracing via Correlation IDs
+```mermaid
+sequenceDiagram
+    participant Cron as Cron Jobs
+    participant MDS as MarketDataService
+    participant RMQ as RabbitMQ
+    participant AEC as AlertEvaluationConsumer
+    participant AEE as AlertEvaluationEngine
+    participant DISP as DispatcherService
+    participant DB as PostgreSQL
+    participant WS as NotificationGateway
 
-Every request through the system maintains a correlation ID for end-to-end tracing:
-
-```
-HTTP Header: x-correlation-id
-    ↓
-Pino Logger Context (HTTP Middleware)
-    ↓
-ServiceContext (NestJS context service)
-    ↓
-RabbitMQ Message Headers
-    ↓
-Consumer (reads from message, propagates to logs)
-    ↓
-Channel Workers (final log output includes ID)
+    Cron->>MDS: refresh quotes/risk/dollar
+    MDS->>DB: persist market data
+    MDS->>RMQ: publish market.*
+    RMQ->>AEC: consume market.*
+    AEC->>AEE: evaluate active alerts
+    AEE->>RMQ: publish alert.*
+    RMQ->>DISP: consume alert.*
+    DISP->>DB: persist notification
+    DISP->>WS: emit notification:new
 ```
 
-All structured logs include `correlationId` property, enabling:
-- Request tracking across async boundaries
-- Debugging distributed failures
-- Performance analysis per request
+## 4.3 API y versionado
 
-### 5. Type Safety & Error Handling
+- Prefijo global: `/api/v1`.
+- Excepción explícita: endpoint de salud (`/health`).
+- Documentación OpenAPI en Swagger.
 
-#### TypeScript Strategy
-- `tsconfig.json` strict mode enabled
-- No `any` types allowed (compile-time enforcement)
-- Unknown payloads strictly type-guarded before use
-- Exhaustive switch statements on enums
+## 4.4 Persistencia
 
-#### Error Handling
-Domain errors replace NestJS exceptions:
+### Motor principal: PostgreSQL
 
-```typescript
-// Domain error (thrown by services)
-class PreferencesNotFoundError extends Error {}
+Se usa para estado transaccional y trazabilidad histórica:
 
-// Global filter maps domain errors to HTTP status
-CustomExceptionsFilter:
-  PreferencesNotFoundError → 404
-  TemplateNotFoundError → 404
-  ValidationError → 400
-  Unexpected → 500
-```
+- usuarios,
+- preferencias,
+- activos,
+- quotes,
+- alertas,
+- notificaciones,
+- portfolios/trades/watchlist.
 
-Benefits:
-- Services remain independent of HTTP layer
-- Same error handling in synchronous and async contexts
-- Testable without mocking HTTP decorators
+### Cache y coordinación: Redis
 
-### 6. Module Dependencies
+- cache de datos de mercado,
+- soporte de lockout/controles de auth,
+- elementos efímeros de performance.
 
-Modules enforce the hexagonal pattern through NestJS DI:
+### Mensajería: RabbitMQ
 
-**IngestionModule** (Event Entry Point)
-- HTTP Controller → Redis Service → RabbitMQ Publisher
+- exchange tipo topic para enrutamiento por dominio (`market.*`, `alert.*`),
+- colas específicas de evaluación y despacho,
+- patrón asíncrono para desacoplar latencia de APIs externas y procesamiento.
 
-**PreferencesModule** (User Settings)
-- HTTP Controller → PreferencesService → TypeORM Repository
+---
 
-**TemplateModule** (Template Management)
-- HTTP Controller → TemplateCompilerService → TypeORM Repository
+## 5. Frontend en detalle
 
-**NotificationModule** (Event Processing)
-- RabbitMQ Consumer → DispatcherService → PreferencesService + TemplateService → Channel Providers
+## 5.1 Stack y responsabilidades
 
-Each module is self-contained with clear entry/exit points.
+- **Next.js 15 + React 19**: app web con App Router.
+- **TanStack Query**: sincronización y cache de datos remotos.
+- **Zustand**: estado de sesión/tema y estado global liviano.
+- **Socket.io client**: actualizaciones en tiempo real (market y notifications).
+- **shadcn/ui + Tailwind**: sistema visual consistente.
 
-## Database Design
+## 5.2 Estructura funcional
 
-### Tables
-- `user_preferences`: User notification rule configuration
-- `notification_templates`: Event-to-template mapping with compilable content
-- Standard audit columns: `id` (UUID), `createdAt`, `updatedAt`, `deletedAt` (soft delete)
+Rutas principales:
 
-### BaseEntity Pattern
-All entities inherit from `BaseEntity` abstract class:
-- Consolidates common columns in one place
-- Reduces repetition across schema migrations
-- Enables global soft-delete behavior
+- Públicas: dashboard, assets, detail, login/register.
+- Protegidas: watchlist, portfolio, alerts, notifications, settings.
 
-### Query Strategy
-Repositories expose business-meaningful methods:
-- `findByUserId()` instead of `findOne()`
-- `findByEventType()` instead of `query("SELECT...")`
-- Prevents exposing SQL/ORM details to application layer
+Capas internas del frontend:
 
-## Testing Strategy
+1. **UI components** (`src/components`)
+2. **Hooks de datos** (`src/hooks`)
+3. **Capa de acceso HTTP/WS** (`src/lib/api`, providers de socket)
+4. **Stores** (`src/stores`)
 
-### Unit Tests (test/unit/)
-Test application services and domain entities in isolation:
-- Mock repositories via Dependency Injection
-- Verify business logic paths
-- No database or RabbitMQ mocking needed
-- Target: >80% coverage on core services
+---
 
-### Integration Tests (test/integration/) - Recommended
-Test HTTP endpoints with real/test database:
-- Spin up temporary test database
-- Use supertest for HTTP assertions
-- Verify full request → response flow
+## 6. Decisiones tecnológicas y justificación
 
-### E2E Tests (test/)
-Full system tests with all backing services:
-- Docker containers started
-- Real event flow through RabbitMQ
-- Message acknowledgment strategies verified
+## 6.1 NestJS (backend)
 
-## Infrastructure as Code
+**Por qué:** modularidad, DI nativo, ecosistema robusto para REST/WS/schedule.
 
-### Docker Deployment
-Development (`docker-compose.yml`):
-- Three services: PostgreSQL, Redis, RabbitMQ
-- Health checks enabled
-- Persistent volumes for data
-- Automatically started on `npm run build` via `scripts/docker-setup.js`
+**Trade-off:** mayor complejidad inicial vs Express plano.
 
-Production (`docker-compose.prod.yml`):
-- Application container added
-- Multi-stage Dockerfile with production optimizations
-- Non-root user execution
-- Reference only - production uses managed services
+## 6.2 TypeORM + PostgreSQL
 
-### Container Initialization
-`scripts/docker-setup.js` handles:
-1. Docker daemon availability check
-2. `.env` file creation from template (if missing)
-3. Image pull and container startup
-4. Health check polling (PostgreSQL, Redis, RabbitMQ)
-5. Clear error messages for misconfiguration
+**Por qué:** equilibrio entre productividad y control relacional.
 
-## Security & Validation
+**Trade-off:** overhead de mapeo ORM y tuning para queries complejas.
 
-### Input Validation
-- Global ValidationPipe with `whitelist: true`
-- Prevents mass assignment vulnerabilities
-- class-validator decorators on all DTOs
-- Rejects unknown properties
+## 6.3 Redis
 
-### HTTP Security
-- Helmet middleware (CORS, CSP, security headers)
-- CORS configured from environment variable
-- Rate limiting ready for implementation
+**Por qué:** latencia baja para cache y controles temporales.
 
-### Secret Management
-- Never hardcode credentials
-- All configuration via environment variables
-- `.env.example` provides template with defaults
-- Production: Use container secret managers
+**Trade-off:** invalidez de cache y coherencia eventual a gestionar.
 
-## Logging & Observability
+## 6.4 RabbitMQ
 
-### Structured Logging (Pino)
-- JSON format for log aggregation
-- Custom properties: `context`, `correlationId`
-- Environment-based log levels (debug/prod)
-- FastifyAdapter handles HTTP logging
+**Por qué:** routing flexible por tópicos, desacople entre productores/consumidores.
 
-### Log Levels
-- `debug`: Development details, function entry/exit
-- `info`: Standard flow (event received, preferences resolved)
-- `warn`: Non-fatal issues (user not found, skipped channel)
-- `error`: Exceptions and failures
+**Trade-off:** operación más compleja que colas administradas simples.
 
-### Correlation ID Propagation
-- Extracted from HTTP headers or generated
-- Passed through all async operations
-- Logged with every message
-- Enables request tracing through external log systems
+## 6.5 Next.js + React Query
 
-## Extensibility
+**Por qué:** buen DX para producto fullstack, fetch/cache declarativo y revalidación.
 
-### Adding New Channels
-1. Create new `ChannelAdapter` implementing `IChannelProvider`
-2. Register in NotificationModule providers
-3. Add enum value to `NotificationChannel`
-4. No changes to core dispatcher logic needed
+**Trade-off:** más abstracción; requiere disciplina para evitar duplicación estado-servidor/cliente.
 
-### Adding New Event Types
-1. Add to `EventType` enum
-2. Create template in database
-3. DispatcherService automatically handles routing
+---
 
-### Custom Repositories
-1. Implement `IRepository` interface in application
-2. Create concrete implementation in infrastructure
-3. Register in module with useClass/useFactory
-4. Application remains unchanged
+## 7. Seguridad, robustez y observabilidad
 
-## Production Considerations
+### 7.1 Seguridad
 
-### Scaling
-- RabbitMQ scales horizontally (multiple consumers)
-- PostgreSQL benefits from connection pooling
-- Redis cluster for distributed caching
-- Stateless application design enables multiple instances
+- validación global estricta de input,
+- JWT para rutas protegidas,
+- guardas y límites de acceso por endpoint,
+- secretos por variables de entorno.
 
-### Data Retention
-- Soft deletes preserve audit trail
-- Migration strategy for schema changes
-- Backup PostgreSQL data separately
-- Redis data can be reconstructed from events
+### 7.2 Robustez
 
-### Monitoring
-- Health endpoint at `/health` (ready for @nestjs/terminus)
-- Structured logs to ELK/Datadog/CloudWatch
-- Correlation IDs for distributed tracing
-- Database connection pool monitoring
+- fallback a persistencia/caches cuando proveedores externos fallan,
+- jobs por lotes con retry/backoff configurable,
+- manejo explícito de errores de dominio.
 
-## Development Workflow
+### 7.3 Observabilidad
 
-See [development_rules.md](development_rules.md) for:
-- Detailed code standards
-- Folder structure enforcement
-- Type safety requirements
-- Commit conventions
-- Testing standards
+- logging estructurado,
+- endpoint de health,
+- trazabilidad por eventos y timestamps de actualización.
 
-See [README.md](README.md) for:
-- Quick start instructions
-- Available npm commands
-- Project setup
-- Docker management
+---
+
+## 8. Trade-offs globales del sistema
+
+1. **Consistencia vs disponibilidad**
+     - Se privilegia disponibilidad ante fallas de proveedores externos usando fallbacks.
+     - Costo: posibles ventanas de datos stale.
+
+2. **Desacople vs simplicidad operativa**
+     - Event-driven reduce acoplamiento y mejora escalabilidad.
+     - Costo: más piezas de infraestructura y mayor complejidad diagnóstica.
+
+3. **Velocidad de entrega vs cobertura funcional total**
+     - Se priorizó cerrar el plan técnico y hardening incremental.
+     - Costo: ciertas funcionalidades de SRS quedan como backlog (ver sección de cobertura).
+
+---
+
+## 9. Estado de implementación y cobertura
+
+### 9.1 Estado técnico actual
+
+- Backend: build/lint/test/e2e en verde.
+- Frontend: lint/test/build/e2e en verde.
+- Integración principal de dominios implementada y auditada.
+
+### 9.2 Cobertura funcional frente al SRS
+
+El proyecto está **funcionalmente sólido y consistente con el plan ejecutado**, pero no debe declararse como 100% del SRS original sin reservas:
+
+- El SRS incluye alcance más amplio y variantes de producto que en el plan técnico fueron simplificadas o diferidas.
+- Existen puntos con fallback/mock controlado en frontend para resiliencia y continuidad de UX.
+- El criterio correcto de cierre actual es: **plan técnico implementado y validado; cobertura SRS alta pero no absoluta**.
+
+Para auditoría de trazabilidad detallada requisito-a-requisito, usar:
+
+- [docs/01-requirements-specification.md](docs/01-requirements-specification.md)
+- [docs/03-implementation-plan.md](docs/03-implementation-plan.md)
+- [docs/implementation-progress.md](docs/implementation-progress.md)
+
+---
+
+## 10. Roadmap técnico recomendado
+
+1. Completar backlog de requisitos diferidos del SRS con matriz formal RF -> endpoint/UI/test.
+2. Reducir dependencias de fallback mock en frontend hacia integración 100% live-data.
+3. Reforzar monitoreo operativo (dashboards de cola, latencia por módulo, errores por dominio).
+4. Consolidar estrategia de despliegue productivo con servicios gestionados y runbooks.
+
+---
+
+## 11. Referencias
+
+- Contexto del proyecto: [.github/project-context.md](.github/project-context.md)
+- Reglas de desarrollo: [.github/development_rules.md](.github/development_rules.md)
+- Especificación técnica: [docs/02-technical-specification.md](docs/02-technical-specification.md)
+- Progreso de implementación: [docs/implementation-progress.md](docs/implementation-progress.md)

@@ -9,7 +9,7 @@ export const getDatabaseConfig = (
   autoLoadEntities: true,
   synchronize: false, // Strict Requirement: Never True
   migrations: [
-    __dirname + '/../../../secondary-adapters/database/migrations/*{.ts,.js}',
+    __dirname + '/../../secondary-adapters/database/migrations/*{.ts,.js}',
   ],
   migrationsRun: configService.get<boolean>(
     'integrations.database.runMigrations',

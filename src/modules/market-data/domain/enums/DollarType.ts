@@ -5,4 +5,6 @@ export enum DollarType {
   CCL = 'CCL',
   TARJETA = 'TARJETA',
   CRIPTO = 'CRIPTO',
+  DOLLAR_MEP_CALC = 'DOLLAR_MEP_CALC',
+  DOLLAR_CCL_CALC = 'DOLLAR_CCL_CALC',
 }

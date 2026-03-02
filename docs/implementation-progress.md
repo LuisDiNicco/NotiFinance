@@ -49,8 +49,8 @@ El MVP fue entregado con la siguiente cobertura:
 | R2-B04 | Acciones/CEDEARs — Cliente BYMA Data | ✅ Completa | `BYMADataClient` con mapeo a formato interno + tests unitarios con fixture (sin activar como fuente principal aún) |
 | R2-B05 | Provider Scoring y Orquestación | ✅ Completa | `ProviderScorer` + `ProviderOrchestrator` integrados en refresh de quotes con fallback por score/confianza |
 | R2-B06 | Catálogo Dinámico y Limpieza | ✅ Completa | `CatalogMaintenanceJob` semanal, columnas de catálogo (`maturityDate`, `lastCatalogCheck`), detección de tickers nuevos en Data912, filtros de activos inactivos con override explícito |
-| R2-B07 | Renta Fija — TIR, TNA/TEA | ⬜ No iniciada | — |
-| R2-B08 | MEP/CCL — Cálculo Propio | ⬜ No iniciada | — |
+| R2-B07 | Renta Fija — TIR, TNA/TEA | ✅ Completa | Cálculo `YTM` para bonos, `TNA/TEA` para LECAP/BONCAP, calendario estático de cupones (AL30/AL35/GD30/GD35/GD38/GD41/GD46), enriquecimiento de `GET /api/v1/market-data/assets/:ticker` y tests unitarios |
+| R2-B08 | MEP/CCL — Cálculo Propio | ✅ Completa | `MEPCCLCalculationService` con cálculo por paridad de bonos (AL30/AL30D y GD30/GD30 NYSE), `MEPCCLCalculationJob` (cron mercado abierto cada 5 min), persistencia de `DOLLAR_MEP_CALC`/`DOLLAR_CCL_CALC`, publicación WebSocket y validación cruzada vs MEP/CCL externos |
 | R2-B09 | Datos Históricos — Backfill | ⬜ No iniciada | — |
 | R2-B10 | Noticias — Agregación RSS | ⬜ No iniciada | — |
 | R2-B11 | Enrichment de Cotizaciones | ⬜ No iniciada | — |
@@ -72,7 +72,7 @@ El MVP fue entregado con la siguiente cobertura:
 
 | Métrica | Valor actual | Target R2 |
 |---|---|---|
-| Tests unitarios backend | 124 passing | +~50 nuevos |
+| Tests unitarios backend | 150 passing | +~50 nuevos |
 | Tests E2E backend | 40 passing | +~15 nuevos |
 | Tests unitarios frontend | 77 passing | +~30 nuevos |
 | Tests E2E frontend | 3 passing | +~5 nuevos |
@@ -94,3 +94,5 @@ El MVP fue entregado con la siguiente cobertura:
 | 2026-03-02 | R2-B04 completada: implementación de `BYMADataClient` para `open.bymadata.com.ar`, mapeo de payload a `MarketQuote`, registro en provider health y tests unitarios con fixture JSON de respuestas. |
 | 2026-03-02 | R2-B05 completada: implementación de `ProviderScorer` (uptime/error/latencia/edad), `ProviderOrchestrator` con selección por score y fallback entre `data912`, `rava`, `byma`, `yahoo`, integración en `MarketDataService` para refresh de quotes y cobertura de tests unitarios. |
 | 2026-03-02 | R2-B06 completada: nuevas migraciones para catálogo dinámico (`AddAssetCatalogFields`, `UpdateAssetCatalogSeed`), `CatalogMaintenanceJob` semanal (desactiva vencidos, actualiza `lastCatalogCheck`, detecta tickers nuevos en Data912), soporte `includeInactive=true` en listado de activos y tests unitarios del job. |
+| 2026-03-02 | R2-B07 completada: `FixedIncomeCalculator` con `calculateYTM` (bonos) y `calculateTNATEA` (zero coupon), dataset estático `FixedIncomeReferenceData` con calendario de cupones para AL30/AL35/GD30/GD35/GD38/GD41/GD46, enriquecimiento del endpoint `GET /api/v1/market-data/assets/:ticker` con bloque `fixedIncome` y cobertura de tests unitarios en `MarketDataService` + cálculos financieros. |
+| 2026-03-02 | R2-B08 completada: implementación de `MEPCCLCalculationService` usando `ProviderOrchestrator` para precios de bonos (AL30/AL30D y GD30/GD30), cálculo de dólar MEP/CCL por paridad, persistencia en `dollar_quotes` como `DOLLAR_MEP_CALC` y `DOLLAR_CCL_CALC`, `MEPCCLCalculationJob` (cron cada 5 min en mercado abierto), emisión por WebSocket y validación cruzada con fuentes externas (`MEP`/`CCL`) con warning por desvío >2%. |

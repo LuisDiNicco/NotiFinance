@@ -1037,4 +1037,81 @@ describe('MarketDataService', () => {
     expect(updated.updatedCount).toBe(0);
     expect(updated.updates).toHaveLength(0);
   });
+
+  it('returns bond fixed-income details for supported bond tickers', async () => {
+    const asset = new Asset(
+      'AL30',
+      'Bonares 2030',
+      AssetType.BOND,
+      'Renta Fija',
+      'AL30.BA',
+    );
+    asset.id = 'asset-bond-1';
+
+    assetRepository.findByTicker.mockResolvedValue(asset);
+    quoteRepository.findLatestByAsset.mockResolvedValue(
+      new MarketQuote(new Date('2026-01-02T00:00:00.000Z'), {
+        assetId: asset.id,
+        closePrice: 62,
+      }),
+    );
+
+    const detail = await service.getAssetDetailByTicker('AL30');
+
+    expect(detail.ticker).toBe('AL30');
+    expect(detail.fixedIncome).not.toBeNull();
+    expect(detail.fixedIncome?.instrumentType).toBe('BOND');
+    expect(detail.fixedIncome?.couponCalendar?.length).toBeGreaterThan(0);
+    expect(typeof detail.fixedIncome?.ytm).toBe('number');
+  });
+
+  it('returns zero-coupon fixed-income details for lecap and boncap', async () => {
+    const asset = new Asset(
+      'S30J7',
+      'LECAP Jul-2027',
+      AssetType.LECAP,
+      'Renta Fija',
+      'S30J7.BA',
+    );
+    asset.id = 'asset-lecap-1';
+    asset.maturityDate = new Date('2027-07-30T00:00:00.000Z');
+
+    assetRepository.findByTicker.mockResolvedValue(asset);
+    quoteRepository.findLatestByAsset.mockResolvedValue(
+      new MarketQuote(new Date('2026-01-02T00:00:00.000Z'), {
+        assetId: asset.id,
+        closePrice: 85,
+      }),
+    );
+
+    const detail = await service.getAssetDetailByTicker('S30J7');
+
+    expect(detail.fixedIncome).not.toBeNull();
+    expect(detail.fixedIncome?.instrumentType).toBe('LECAP');
+    expect(typeof detail.fixedIncome?.tna).toBe('number');
+    expect(typeof detail.fixedIncome?.tea).toBe('number');
+  });
+
+  it('returns null fixed-income details for non fixed-income assets', async () => {
+    const asset = new Asset(
+      'GGAL',
+      'Galicia',
+      AssetType.STOCK,
+      'Financiero',
+      'GGAL.BA',
+    );
+    asset.id = 'asset-stock-1';
+
+    assetRepository.findByTicker.mockResolvedValue(asset);
+    quoteRepository.findLatestByAsset.mockResolvedValue(
+      new MarketQuote(new Date('2026-01-02T00:00:00.000Z'), {
+        assetId: asset.id,
+        closePrice: 1200,
+      }),
+    );
+
+    const detail = await service.getAssetDetailByTicker('GGAL');
+
+    expect(detail.fixedIncome).toBeNull();
+  });
 });
